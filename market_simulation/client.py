@@ -1,5 +1,8 @@
-import sysv_ipc
+"""
+Simulation client, used to give orders to the server
+"""
 import sys
+import sysv_ipc
 
 
 class Client:
@@ -14,7 +17,7 @@ class Client:
             print(f"Cannot connect to message queue {key}, terminating.")
             sys.exit(1)
 
-        print("Connection established. Enter \"begin\" to start the simulation")
+        print('Connection established. Enter "end" to end the simulation')
 
     def process(self, message):
         """
@@ -28,21 +31,25 @@ class Client:
         self.message_queue.send(message=message, type=1)
 
         # Wait for a response
-        a, t = self.message_queue.receive(type=2)
-        return int(a)
+        server_response, _ = self.message_queue.receive(type=2)
+        return int(server_response)
 
 
 if __name__ == "__main__":
-    ipc_key = 128
+    IPC_KEY = 128
 
     if len(sys.argv) == 2:
-        ipc_key = int(sys.argv[1])
+        IPC_KEY = int(sys.argv[1])
 
-    client = Client(ipc_key)
+    client = Client(IPC_KEY)
 
     # Stops when response = 0
     while response := client.process(input(" > ")):
-        print("Request processed" if response == 1 else "Server could not interpret the response")
+        print(
+            "Request processed"
+            if response == 1
+            else "Server could not interpret the response"
+        )
 
     client.message_queue.remove()
     print("client stopped")

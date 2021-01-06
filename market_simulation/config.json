@@ -1,0 +1,25 @@
+{
+  "server": {
+    "ipc_key_client": 128,
+    "ipc_key_processes": 129,
+    "ipc_key_house": 130,
+    "sync" : {
+      "auto": true,
+      "time_interval": 10000
+    }
+  },
+  "weather": {
+    "cloud_coverage": 20,
+    "temperature": 25
+  },
+  "market": {
+    "political": false,
+    "economy": false,
+    "speculation": false
+  },
+  "cities": {
+    "nb_houses": 100,
+    "average_conso": 15,
+    "max_prod": 15
+  }
+}
