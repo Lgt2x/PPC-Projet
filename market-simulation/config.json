@@ -1,0 +1,9 @@
+{
+  "ipc_key": 128,
+  "nb_houses": 100,
+  "temperature": 25,
+  "political": false,
+  "economy": false,
+  "speculation": false,
+  "cloud_coverage": 20
+}
