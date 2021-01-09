@@ -9,7 +9,7 @@ import json
 import os
 import sysv_ipc
 
-from market_simulation.server.sync import ServerSync
+from server.sync import ServerSync
 from server.market import Market
 from server.city import City
 from server.weather import Weather

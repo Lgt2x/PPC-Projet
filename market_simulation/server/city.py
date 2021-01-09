@@ -7,8 +7,8 @@ from random import randint
 import sysv_ipc
 import os
 
-from market_simulation.server.ServerProcess import ServerProcess
-from market_simulation.server.home import Home
+from .ServerProcess import ServerProcess
+from .home import Home
 
 
 class City(ServerProcess):
@@ -34,7 +34,7 @@ class City(ServerProcess):
             weather_mutex=weather_mutex,
             average_conso=average_conso,
             max_prod=max_prod,
-            id=i+1  # can't be null
+            id=i + 1  # can't be null
         ) for i in range(self.nb_houses)]
 
         print(f"Starting city with {self.nb_houses} houses")

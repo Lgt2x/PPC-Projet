@@ -6,7 +6,7 @@ from random import random
 
 from sysv_ipc import MessageQueue
 
-from market_simulation.server.ServerProcess import ServerProcess
+from .ServerProcess import ServerProcess
 
 
 class Market(ServerProcess):

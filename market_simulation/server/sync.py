@@ -5,7 +5,7 @@ Defines the class used for server sync
 from time import sleep
 from sysv_ipc import MessageQueue
 
-from market_simulation.server.ServerProcess import ServerProcess
+from .ServerProcess import ServerProcess
 
 
 class ServerSync(ServerProcess):
@@ -31,7 +31,6 @@ class ServerSync(ServerProcess):
         Used to sunc every other subprocess, waiting the barrier
         when timer expired OR when received the instruction to do so
         """
-        self.write_barrier.reset()
 
         if self.mode:  # auto
             sleep(self.time_interval)
@@ -41,5 +40,4 @@ class ServerSync(ServerProcess):
         print("timer expired")
 
     def write(self):
-        self.compute_barrier.reset()
         print(f"***** Turn {self.turn} ended, begin turn {self.turn+1}*****\n")
