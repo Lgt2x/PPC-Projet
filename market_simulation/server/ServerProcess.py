@@ -29,14 +29,13 @@ class ServerProcess(Process):
         Method called when the process starts
         Calls compute and write barriers
         """
-
         # Wait for every simulation object to call the compute barrier
-        self.compute_barrier.wait()
         self.update()
+        self.compute_barrier.wait()
 
         # Wait for every simulation object to call the write barrier
-        self.write_barrier.wait()
         self.write()
+        self.write_barrier.wait()
 
         # Then runs again
         self.run()

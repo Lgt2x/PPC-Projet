@@ -15,7 +15,7 @@ class Home(Process):
     consuming electricity following a specific behavior
     """
     def __init__(self, house_type, ipc_key, compute_barrier, weather_shared, weather_mutex,
-                 average_conso, max_prod):
+                 average_conso, max_prod, id):
         super(Home, self).__init__()
 
         self.house_type = house_type
@@ -27,10 +27,9 @@ class Home(Process):
         self.bill = 0
 
         self.market_mq = sysv_ipc.MessageQueue(ipc_key)
-        self.home_pid = os.getpid()
+        self.home_pid = id
 
-    def update(self):
-
+    def run(self):
         # Home inhabitants check local weather
         # which influences their decisions on whether or not
         # they'll use electric heating or not (which is a major energy sink)
@@ -59,13 +58,15 @@ class Home(Process):
         self.market_mq.send(message.encode(), type=self.home_pid)
 
         # Get the bill from the market
-        self.bill = self.market_mq.receive(type=self.home_pid)
+        self.bill = self.market_mq.receive(type=self.home_pid+10**6)[0].decode()
+
+        print(f"updated home {self.home_pid}, {self.bill}")
 
         # All done, now wait the barrier
         self.compute_barrier.wait()
 
         # And update again
-        self.update()
+        self.run()
 
     @staticmethod
     def get_cons(temp):
@@ -76,9 +77,9 @@ class Home(Process):
         """
 
         cons = 70 + randint(-5, 5)  # Random small variations
-        if temp <= 0: # Heating
+        if temp <= 0:  # Heating
             cons += 15
-        if temp >= 32: # Air Conditionner
+        if temp >= 32:  # Air Conditionner
             cons += 10
 
         return cons

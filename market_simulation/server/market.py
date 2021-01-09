@@ -46,7 +46,7 @@ class Market(ServerProcess):
 
         # Update the price
         with self.price_mutex:
-            self.price_shared = self.gamma * self.price_shared \
+            self.price_shared.value = self.gamma * self.price_shared.value \
                                 + self.alpha[0] * temperature \
                                 + self.alpha[1] * cloud_coverage \
                                 + self.alpha[2] * self.consumption \

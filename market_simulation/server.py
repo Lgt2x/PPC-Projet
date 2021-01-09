@@ -46,7 +46,7 @@ class Server:
 
             # Shared memory for the energy price
             self.price_mutex = Lock()
-            self.price_shared = Value('i')
+            self.price_shared = Value('d')
 
             # Declaring the simulation processes
 
@@ -92,10 +92,15 @@ class Server:
             )
 
         self.sync = ServerSync(
-            barrier=self.compute_barrier,
+            compute_barrier=self.compute_barrier,
+            write_barrier=self.write_barrier,
+            price_shared=self.price_shared,
+            price_mutex=self.price_mutex,
+            weather_mutex=self.weather_mutex,
+            weather_shared=self.weather_shared,
+            ipc_key=json_config["server"]["ipc_key_processes"],
             mode=json_config["server"]["sync"]["auto"],
             time_interval=json_config["server"]["sync"]["time_interval"],
-            ipc_key=json_config["server"]["ipc_key_client"]
         )
 
         # Starting all processes
@@ -105,7 +110,6 @@ class Server:
         self.sync.start()
 
         print("Initialization complete")
-
 
     def process(self, message):
         """
@@ -120,14 +124,12 @@ class Server:
             return self.terminate()
         return self.error()
 
-
     def receive(self):
         """
         Receives a message from the ipc client
         :return: 0 if end, something else if not
         """
         return self.client_mq.receive(type=1)
-
 
     def error(self):
         """
@@ -137,7 +139,6 @@ class Server:
         print("Couldn't parse client request")
         self.client_mq.send("-1".encode(), type=2)
         return 1
-
 
     def terminate(self):
         """
@@ -194,5 +195,3 @@ if __name__ == "__main__":
     # Stops when response = 0
     # while response := server.process(server.receive()):
     #     print(response)
-
-    print("Process stopped")
