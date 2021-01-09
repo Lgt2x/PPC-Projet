@@ -4,7 +4,7 @@ Configured by a json file
 """
 
 import sys
-from multiprocessing import Process
+from multiprocessing import Lock, Array, Barrier, Value
 import json
 import os
 import sysv_ipc
