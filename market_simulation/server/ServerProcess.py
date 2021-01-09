@@ -10,8 +10,14 @@ class ServerProcess(Process):
     Abstract class used to define the common behavior between server subprocess
     """
 
-    def __init__(self, compute_barrier, write_barrier, price_shared, weather_shared,
-                 ipc_key):
+    def __init__(
+        self,
+        compute_barrier: Barrier,
+        write_barrier: Barrier,
+        price_shared: Value,
+        weather_shared: Value,
+        ipc_key: int,
+    ):
         super(ServerProcess, self).__init__()
 
         self.compute_barrier = compute_barrier

@@ -12,14 +12,23 @@ class Home(Process):
     Home class, instantiated by a city, which simulates a home
     consuming electricity following a specific behavior
     """
-    def __init__(self, house_type, ipc_key, compute_barrier, weather_shared,
-                 average_conso, max_prod, id):
+
+    def __init__(
+        self,
+        house_type,
+        ipc_key,
+        compute_barrier,
+        weather_shared,
+        average_conso,
+        max_prod,
+        id,
+    ):
         super(Home, self).__init__()
 
         self.house_type = house_type
         self.weather_shared = weather_shared
         self.compute_barrier = compute_barrier
-        self.production = max_prod/2  # initial conditions
+        self.production = max_prod / 2  # initial conditions
         self.conso = average_conso  # initial conditions
         self.bill = 0
 
@@ -33,7 +42,7 @@ class Home(Process):
         with self.weather_shared.get_lock():
             temperature = self.weather_shared[0]
             cloud_coverage = self.weather_shared[1]
-        
+
         self.conso = Home.get_cons(temperature)
 
         # Random consumption based on the base value
@@ -41,7 +50,7 @@ class Home(Process):
         # Add the cloud coverage factor, diminishing the production
         # TODO : verify the formula ?
         if 0 <= cloud_coverage <= 60:
-            self.production = self.production + 0.1*cloud_coverage
+            self.production = self.production + 0.1 * cloud_coverage
         elif cloud_coverage > 60 or temperature > 35:
             self.production = 0
 
@@ -55,7 +64,7 @@ class Home(Process):
         self.market_mq.send(message.encode(), type=self.home_pid)
 
         # Get the bill from the market
-        self.bill = self.market_mq.receive(type=self.home_pid+10**6)[0].decode()
+        self.bill = self.market_mq.receive(type=self.home_pid + 10 ** 6)[0].decode()
 
         print(f"updated home {self.home_pid}, {self.bill}")
 

@@ -28,7 +28,7 @@ class Server:
 
             self.client_mq = self.create_ipc(json_config["server"]["ipc_key_client"])
             self.house_mq = self.create_ipc(json_config["server"]["ipc_key_house"])
-            self.house_mq = self.create_ipc(json_config["server"]["ipc_key_processes"], )
+            self.house_mq = self.create_ipc(json_config["server"]["ipc_key_processes"],)
 
             # Create a barrier for synchronization
             # 4 processes need to be synchronized : Weather, City, Market and Server Sync
@@ -41,10 +41,10 @@ class Server:
             self.write_barrier = Barrier(parties=4)
 
             # Shared memory for the weather
-            self.weather_shared = Array('i', 2)
+            self.weather_shared = Array("i", 2)
 
             # Shared memory for the energy price
-            self.price_shared = Value('d')
+            self.price_shared = Value("d")
 
             # Declaring the simulation processes
 
@@ -70,7 +70,7 @@ class Server:
                 economy=json_config["market"]["economy_score"],
                 speculation=json_config["market"]["speculation_score"],
                 nb_houses=json_config["cities"]["nb_houses"],
-                ipc_house=json_config["server"]["ipc_key_house"]
+                ipc_house=json_config["server"]["ipc_key_house"],
             )
 
             self.weather = Weather(
@@ -156,17 +156,11 @@ class Server:
         :return: the MessageQueue Object
         """
         try:
-            message_queue = sysv_ipc.MessageQueue(
-                ipc_key, sysv_ipc.IPC_CREX
-            )
+            message_queue = sysv_ipc.MessageQueue(ipc_key, sysv_ipc.IPC_CREX)
         except sysv_ipc.ExistentialError:
-            print(
-                f"Message queue {ipc_key} already exsits, recreating it."
-            )
+            print(f"Message queue {ipc_key} already exists, recreating it.")
             os.system(f"ipcrm -Q {hex(ipc_key)}")
-            message_queue = sysv_ipc.MessageQueue(
-                ipc_key, sysv_ipc.IPC_CREX
-            )
+            message_queue = sysv_ipc.MessageQueue(ipc_key, sysv_ipc.IPC_CREX)
 
         return message_queue
 
