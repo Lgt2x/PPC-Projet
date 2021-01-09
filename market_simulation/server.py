@@ -28,6 +28,7 @@ class Server:
 
             self.client_mq = self.create_ipc(json_config["server"]["ipc_key_client"])
             self.house_mq = self.create_ipc(json_config["server"]["ipc_key_house"])
+            self.house_mq = self.create_ipc(json_config["server"]["ipc_key_processes"], )
 
             # Create a barrier for synchronization
             # 4 processes need to be synchronized : Weather, City, Market and Server Sync
@@ -48,75 +49,63 @@ class Server:
             self.price_shared = Value('i')
 
             # Declaring the simulation processes
-            self.city = Process(
-                target=City,
-                args=(
-                    self.compute_barrier,
-                    self.write_barrier,
-                    self.price_shared,
-                    self.price_mutex,
-                    self.weather_mutex,
-                    self.weather_shared,
-                    json_config["server"]["ipc_key_processes"],
-                    json_config["server"]["ipc_key_houses"],
-                    json_config["cities"]["nb_houses"],
-                    json_config["cities"]["average_conso"],
-                    json_config["cities"]["max_prod"],
-                    json_config["server"]["ipc_key_house"]
-                )
+
+            self.city = City(
+                compute_barrier=self.compute_barrier,
+                write_barrier=self.write_barrier,
+                price_shared=self.price_shared,
+                price_mutex=self.price_mutex,
+                weather_mutex=self.weather_mutex,
+                weather_shared=self.weather_shared,
+                ipc_key=json_config["server"]["ipc_key_processes"],
+                ipc_key_houses=json_config["server"]["ipc_key_house"],
+                nb_houses=json_config["cities"]["nb_houses"],
+                average_conso=json_config["cities"]["average_conso"],
+                max_prod=json_config["cities"]["max_prod"],
             )
 
-            self.market = Process(
-                target=Market,
-                args=(
-                    self.compute_barrier,
-                    self.write_barrier,
-                    self.price_shared,
-                    self.price_mutex,
-                    self.weather_mutex,
-                    self.weather_shared,
-                    json_config["server"]["ipc_key_processes"],
-                    json_config["market"]["political"],
-                    json_config["market"]["economy"],
-                    json_config["market"]["speculation"],
-                    json_config["cities"]["nb_houses"],
-                    json_config["server"]["ipc_key_house"]
-                )
+            self.market = Market(
+                compute_barrier=self.compute_barrier,
+                write_barrier=self.write_barrier,
+                price_shared=self.price_shared,
+                price_mutex=self.price_mutex,
+                weather_mutex=self.weather_mutex,
+                weather_shared=self.weather_shared,
+                ipc_key=json_config["server"]["ipc_key_processes"],
+                politics=json_config["market"]["political"],
+                economy=json_config["market"]["economy"],
+                speculation=json_config["market"]["speculation"],
+                nb_houses=json_config["cities"]["nb_houses"],
+                ipc_house=json_config["server"]["ipc_key_house"]
             )
 
-            self.weather = Process(
-                target=Weather,
-                args=(
-                    self.compute_barrier,
-                    self.write_barrier,
-                    self.price_shared,
-                    self.price_mutex,
-                    self.weather_mutex,
-                    self.weather_shared,
-                    json_config["server"]["ipc_key_processes"],
-                    json_config["weather"]["temperature"],
-                    json_config["weather"]["cloud_coverage"],
-                )
+            self.weather = Weather(
+                compute_barrier=self.compute_barrier,
+                write_barrier=self.write_barrier,
+                price_shared=self.price_shared,
+                price_mutex=self.price_mutex,
+                weather_mutex=self.weather_mutex,
+                weather_shared=self.weather_shared,
+                ipc_key=json_config["server"]["ipc_key_processes"],
+                temperature=json_config["weather"]["temperature"],
+                cloud_coverage=json_config["weather"]["cloud_coverage"],
             )
 
-            self.sync = Process(
-                target=ServerSync,
-                args=(
-                    self.compute_barrier,
-                    config_file["server"]["sync"]["auto"],
-                    config_file["server"]["sync"]["time_interval"],
-                    config_file["server"]["ipc_key_processes"],
-                )
-            )
+        self.sync = ServerSync(
+            barrier=self.compute_barrier,
+            mode=json_config["server"]["sync"]["auto"],
+            time_interval=json_config["server"]["sync"]["time_interval"],
+            ipc_key=json_config["server"]["ipc_key_client"]
+        )
 
-            # Starting all processes
-            # It runs the `run` method
-            self.city.start()
-            self.weather.start()
-            self.market.start()
-            self.sync.start()
+        # Starting all processes
+        self.city.start()
+        self.weather.start()
+        self.market.start()
+        self.sync.start()
 
-            print("Initialization complete")
+        print("Initialization complete")
+
 
     def process(self, message):
         """
@@ -131,12 +120,14 @@ class Server:
             return self.terminate()
         return self.error()
 
+
     def receive(self):
         """
         Receives a message from the ipc client
         :return: 0 if end, something else if not
         """
-        return self.message_queue.receive(type=1)
+        return self.client_mq.receive(type=1)
+
 
     def error(self):
         """
@@ -144,8 +135,9 @@ class Server:
         :return: 1
         """
         print("Couldn't parse client request")
-        self.message_queue.send("-1".encode(), type=2)
+        self.client_mq.send("-1".encode(), type=2)
         return 1
+
 
     def terminate(self):
         """
@@ -155,7 +147,7 @@ class Server:
 
         # Send a zero (termination) code to the client
         message = "0".encode()
-        self.message_queue.send(message=message, type=2)
+        self.client_mq.send(message=message, type=2)
 
         # Message them to suicide
         self.city.join()
@@ -164,7 +156,34 @@ class Server:
 
         return 0
 
+    @staticmethod
+    def create_ipc(ipc_key):
+        """
+        Create an IPC message queue given an ID.
+        If it already exists, remove it using the os primitive and create if again
+        :param ipc_key: the IPCMQ key id
+        :return: the MessageQueue Object
+        """
+        try:
+            message_queue = sysv_ipc.MessageQueue(
+                ipc_key, sysv_ipc.IPC_CREX
+            )
+        except sysv_ipc.ExistentialError:
+            print(
+                f"Message queue {ipc_key} already exsits, recreating it."
+            )
+            os.system(f"ipcrm -Q {hex(ipc_key)}")
+            message_queue = sysv_ipc.MessageQueue(
+                ipc_key, sysv_ipc.IPC_CREX
+            )
 
+        return message_queue
+
+
+""" Main server program loop
+    Takes a json config file as an argument,
+    and runs until the clients asks the process to end
+"""
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         server = Server(sys.argv[1])
@@ -173,7 +192,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Stops when response = 0
-    while response := server.process(server.receive()):
-        print(response)
+    # while response := server.process(server.receive()):
+    #     print(response)
 
     print("Process stopped")

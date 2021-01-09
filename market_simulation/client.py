@@ -35,6 +35,9 @@ class Client:
         return int(server_response)
 
 
+""" Main client loop
+    takes an only argument, the ipc key id to communicate with the server
+"""
 if __name__ == "__main__":
     IPC_KEY = 128
 

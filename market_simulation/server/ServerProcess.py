@@ -11,7 +11,7 @@ class ServerProcess(Process):
     """
 
     def __init__(self, compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex, weather_shared,
-                 ipc_key, *args, **kwargs):
+                 ipc_key):
         super(ServerProcess, self).__init__()
 
         self.compute_barrier = compute_barrier
