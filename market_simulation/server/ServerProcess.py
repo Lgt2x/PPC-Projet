@@ -1,7 +1,7 @@
 """
 Defines abstract class from which every server class derives
 """
-from multiprocessing import Process
+from multiprocessing import Process, Barrier, Value
 from sysv_ipc import MessageQueue
 
 
@@ -49,11 +49,9 @@ class ServerProcess(Process):
         Updates attributes to reflect changes in the simulation
         Overridden in sub-class
         """
-        pass
 
     def write(self):
         """
         Writes attributes to the shared memory segments
         Overridden in sub-class
         """
-        pass

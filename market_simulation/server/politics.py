@@ -12,6 +12,7 @@ class Politics(Process):
     """
     Simulates political events, sending signal to the market randomly
     """
+
     def __init__(self):
         super(Politics, self).__init__()
 

@@ -43,7 +43,6 @@ class Market(ServerProcess):
         with self.economy.get_lock():
             self.economy.value = economy
 
-        # self.speculation = speculation
         self.nb_houses = nb_houses
         self.price_shared = price_shared
 
@@ -132,7 +131,7 @@ class Market(ServerProcess):
                     f"House {house} payed ${bill}. Surplus is now ${self.surplus.value}"
                 )
         else:  # If production > consumption
-            if behaviour == 1:  # Gives away prudiction
+            if behaviour == 1:  # Gives away production
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
                 bill = 0
@@ -155,7 +154,7 @@ class Market(ServerProcess):
     def update(self) -> None:
         """
         Wait for each home to report usage
-        Do it in a thread of a threadpool
+        Do it in a thread of a thread pool
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.workers) as pool:
             for _ in range(self.nb_houses):

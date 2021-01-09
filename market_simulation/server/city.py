@@ -1,7 +1,7 @@
 """
 City object, to simulate a bunch of houses consuming electricity
 """
-from multiprocessing import Barrier
+from multiprocessing import Barrier, Value
 from random import randint
 
 from .ServerProcess import ServerProcess

@@ -2,6 +2,7 @@
 Weather simulation, which communicates information
 to the server through a shared memory
 """
+from multiprocessing import Barrier, Value
 from random import randint
 
 from .ServerProcess import ServerProcess
@@ -37,5 +38,6 @@ class Weather(ServerProcess):
         with self.weather_shared.get_lock():
             self.weather_shared[0] += randint(-5, 5)  # Temperature
             self.weather_shared[1] = randint(0, 100)  # Cloud coverage
-
-        print(f"Weather for next turn : ")
+            print(
+                f"Weather for next turn : {self.weather_shared[0]}°C, Cloud coverage {self.weather_shared}%"
+            )

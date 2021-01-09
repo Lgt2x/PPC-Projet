@@ -14,8 +14,7 @@
   },
   "market": {
     "political_score": 100,
-    "economy_score": 100,
-    "speculation_score": 100
+    "economy_score": 100
   },
   "cities": {
     "nb_houses": 10,

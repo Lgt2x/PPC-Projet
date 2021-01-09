@@ -4,7 +4,7 @@ Configured by a json file
 """
 
 import sys
-from multiprocessing import Lock, Array, Barrier, Value
+from multiprocessing import Array, Barrier, Value
 import json
 import os
 import sysv_ipc
@@ -24,8 +24,10 @@ class Server:
 
     def __init__(self, config_file: str):
         with open(config_file) as file:
+            # Load the json configuration file
             json_config = json.load(file)
 
+            # Create the different IPC message queues we will be using
             self.client_mq = self.create_ipc(json_config["server"]["ipc_key_client"])
             self.house_mq = self.create_ipc(json_config["server"]["ipc_key_house"])
             self.house_mq = self.create_ipc(json_config["server"]["ipc_key_processes"],)
@@ -47,7 +49,6 @@ class Server:
             self.price_shared = Value("d")
 
             # Declaring the simulation processes
-
             self.city = City(
                 compute_barrier=self.compute_barrier,
                 write_barrier=self.write_barrier,
@@ -68,7 +69,6 @@ class Server:
                 ipc_key=json_config["server"]["ipc_key_processes"],
                 politics=json_config["market"]["political_score"],
                 economy=json_config["market"]["economy_score"],
-                speculation=json_config["market"]["speculation_score"],
                 nb_houses=json_config["cities"]["nb_houses"],
                 ipc_house=json_config["server"]["ipc_key_house"],
             )
@@ -152,7 +152,7 @@ class Server:
         """
         Create an IPC message queue given an ID.
         If it already exists, remove it using the os primitive and create if again
-        :param ipc_key: the IPCMQ key id
+        :param ipc_key: the IPC Message Queue key id
         :return: the MessageQueue Object
         """
         try:

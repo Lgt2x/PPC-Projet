@@ -12,6 +12,7 @@ class Economics(Process):
     """
     Simulates Economics events, sending signal to the market randomly
     """
+
     def __init__(self):
         super(Economics, self).__init__()
 
