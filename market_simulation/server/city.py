@@ -13,9 +13,9 @@ class City(ServerProcess):
     City object, used to simulate a group of electricity-consuming houses
     """
 
-    def __init__(self, compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex, weather_shared,
+    def __init__(self, compute_barrier, write_barrier, price_shared, weather_shared,
                  ipc_key, ipc_key_houses, nb_houses, average_conso, max_prod):
-        super(City, self).__init__(compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex,
+        super(City, self).__init__(compute_barrier, write_barrier, price_shared,
                                    weather_shared, ipc_key)
 
         self.nb_houses = nb_houses
@@ -28,7 +28,6 @@ class City(ServerProcess):
             ipc_key=ipc_key_houses,
             compute_barrier=self.barrier,
             weather_shared=weather_shared,
-            weather_mutex=weather_mutex,
             average_conso=average_conso,
             max_prod=max_prod,
             id=i + 1  # can't be null

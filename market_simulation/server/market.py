@@ -3,12 +3,15 @@ Market process, simulating the electricity market,
 reacting to external factors
 """
 import concurrent.futures
-from multiprocessing import Lock
-from random import random
+import multiprocessing
+import signal
+from multiprocessing import Value
 
 from sysv_ipc import MessageQueue
 
 from .ServerProcess import ServerProcess
+from .economics import Economics
+from .politics import Politics
 
 
 class Market(ServerProcess):
@@ -16,9 +19,13 @@ class Market(ServerProcess):
     Instantiated by the server, this class simulates the electricity market
     """
 
-    def __init__(self, compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex, weather_shared,
-                 ipc_key, politics, economy, speculation, nb_houses, ipc_house):
-        super(Market, self).__init__(compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex,
+    def __init__(self, compute_barrier: multiprocessing.Barrier,
+                 write_barrier: multiprocessing.Barrier,
+                 price_shared: multiprocessing.Value,
+                 weather_shared: multiprocessing.Array,
+                 ipc_key: int, politics: int, economy: int, speculation: int,
+                 nb_houses: int, ipc_house: int):
+        super(Market, self).__init__(compute_barrier, write_barrier, price_shared,
                                      weather_shared, ipc_key)
 
         self.politics = Value('i')
@@ -51,6 +58,34 @@ class Market(ServerProcess):
         self.alpha = [0.1, 0.1, 0.1]
         self.beta = [0.1, 0.1, 0.1]
 
+        self.economics_process = Economics()
+        self.politics_process = Politics()
+        self.economics_process.start()
+        self.politics_process.start()
+
+        # Politics : score between 0 and 100.
+        # SIGUSR1 : politics situation deteriorates
+        # SIGUSR2 : economics situation deteriorates
+        signal.signal(signal.SIGUSR1, self.signal_handler)
+        signal.signal(signal.SIGUSR2, self.signal_handler)
+
+    def signal_handler(self, sig, _):
+        """
+        Decreases the economical or political score when a signal is sent
+        :param sig: signal_type
+        :param _:
+        :return:
+        """
+        if sig == signal.SIGUSR1:
+            with self.politics.get_lock():
+                self.politics.value = max(0, self.politics.value-30)
+                print("\n\nPolitics score goes down :" + str(self.politics.value) + "/100\n\n")
+
+        elif sig == signal.SIGUSR2:
+            with self.economy.get_lock():
+                self.economy.value = max(0, self.economy.value-30)
+                print("\n\nEconomy score goes down :" + str(self.economy.value) + "/100\n\n")
+
     def transaction(self, message: str, house: int):
         """
         Perform a transaction asynchronously with a house
@@ -65,7 +100,7 @@ class Market(ServerProcess):
         #   - Null if the house gives away its surplus energy and has consumption < 0
         #   - Negative if the house sells its surplus energy and has consumption < 0
 
-        with self.price_mutex:
+        with self.price_shared.get_lock():
             price_kwh = self.price_shared.value
 
         if consumption > 0:  # If production < consumption

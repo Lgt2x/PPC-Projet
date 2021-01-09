@@ -44,7 +44,6 @@ class Server:
             self.weather_shared = Array('i', 2)
 
             # Shared memory for the energy price
-            self.price_mutex = Lock()
             self.price_shared = Value('d')
 
             # Declaring the simulation processes
@@ -53,8 +52,6 @@ class Server:
                 compute_barrier=self.compute_barrier,
                 write_barrier=self.write_barrier,
                 price_shared=self.price_shared,
-                price_mutex=self.price_mutex,
-                weather_mutex=self.weather_mutex,
                 weather_shared=self.weather_shared,
                 ipc_key=json_config["server"]["ipc_key_processes"],
                 ipc_key_houses=json_config["server"]["ipc_key_house"],
@@ -67,8 +64,6 @@ class Server:
                 compute_barrier=self.compute_barrier,
                 write_barrier=self.write_barrier,
                 price_shared=self.price_shared,
-                price_mutex=self.price_mutex,
-                weather_mutex=self.weather_mutex,
                 weather_shared=self.weather_shared,
                 ipc_key=json_config["server"]["ipc_key_processes"],
                 politics=json_config["market"]["political_score"],
@@ -82,8 +77,6 @@ class Server:
                 compute_barrier=self.compute_barrier,
                 write_barrier=self.write_barrier,
                 price_shared=self.price_shared,
-                price_mutex=self.price_mutex,
-                weather_mutex=self.weather_mutex,
                 weather_shared=self.weather_shared,
                 ipc_key=json_config["server"]["ipc_key_processes"],
                 temperature=json_config["weather"]["temperature"],
@@ -94,8 +87,6 @@ class Server:
             compute_barrier=self.compute_barrier,
             write_barrier=self.write_barrier,
             price_shared=self.price_shared,
-            price_mutex=self.price_mutex,
-            weather_mutex=self.weather_mutex,
             weather_shared=self.weather_shared,
             ipc_key=json_config["server"]["ipc_key_processes"],
             mode=json_config["server"]["sync"]["auto"],

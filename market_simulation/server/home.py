@@ -12,13 +12,12 @@ class Home(Process):
     Home class, instantiated by a city, which simulates a home
     consuming electricity following a specific behavior
     """
-    def __init__(self, house_type, ipc_key, compute_barrier, weather_shared, weather_mutex,
+    def __init__(self, house_type, ipc_key, compute_barrier, weather_shared,
                  average_conso, max_prod, id):
         super(Home, self).__init__()
 
         self.house_type = house_type
         self.weather_shared = weather_shared
-        self.weather_mutex = weather_mutex
         self.compute_barrier = compute_barrier
         self.production = max_prod/2  # initial conditions
         self.conso = average_conso  # initial conditions
@@ -31,7 +30,7 @@ class Home(Process):
         # Home inhabitants check local weather
         # which influences their decisions on whether or not
         # they'll use electric heating or not (which is a major energy sink)
-        with self.weather_mutex:
+        with self.weather_shared.get_lock():
             temperature = self.weather_shared[0]
             cloud_coverage = self.weather_shared[1]
         
