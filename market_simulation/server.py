@@ -22,7 +22,7 @@ class Server:
     Market, and Weather
     """
 
-    def __init__(self, config_file):
+    def __init__(self, config_file: str):
         with open(config_file) as file:
             json_config = json.load(file)
 
@@ -41,7 +41,6 @@ class Server:
             self.write_barrier = Barrier(parties=4)
 
             # Shared memory for the weather
-            self.weather_mutex = Lock()
             self.weather_shared = Array('i', 2)
 
             # Shared memory for the energy price
@@ -72,9 +71,9 @@ class Server:
                 weather_mutex=self.weather_mutex,
                 weather_shared=self.weather_shared,
                 ipc_key=json_config["server"]["ipc_key_processes"],
-                politics=json_config["market"]["political"],
-                economy=json_config["market"]["economy"],
-                speculation=json_config["market"]["speculation"],
+                politics=json_config["market"]["political_score"],
+                economy=json_config["market"]["economy_score"],
+                speculation=json_config["market"]["speculation_score"],
                 nb_houses=json_config["cities"]["nb_houses"],
                 ipc_house=json_config["server"]["ipc_key_house"]
             )
@@ -111,7 +110,7 @@ class Server:
 
         print("Initialization complete")
 
-    def process(self, message):
+    def process(self, message: str) -> int:
         """
         Processes the message
         :param message: a string
@@ -127,11 +126,11 @@ class Server:
     def receive(self):
         """
         Receives a message from the ipc client
-        :return: 0 if end, something else if not
+        :return:
         """
         return self.client_mq.receive(type=1)
 
-    def error(self):
+    def error(self) -> int:
         """
         Error handling, when the server doesn't recognizes the request
         :return: 1
@@ -140,7 +139,7 @@ class Server:
         self.client_mq.send("-1".encode(), type=2)
         return 1
 
-    def terminate(self):
+    def terminate(self) -> int:
         """
         Terminates the server process
         Deletes message queue, and ends processes
@@ -158,7 +157,7 @@ class Server:
         return 0
 
     @staticmethod
-    def create_ipc(ipc_key):
+    def create_ipc(ipc_key: int) -> sysv_ipc.MessageQueue:
         """
         Create an IPC message queue given an ID.
         If it already exists, remove it using the os primitive and create if again
@@ -191,7 +190,3 @@ if __name__ == "__main__":
     else:
         print("Usage : python server.py <config_file>")
         sys.exit(1)
-
-    # Stops when response = 0
-    # while response := server.process(server.receive()):
-    #     print(response)

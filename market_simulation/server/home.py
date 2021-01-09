@@ -1,10 +1,8 @@
 """
 Home process, used to simulate a house
 """
-import os
-
-import sysv_ipc
 from multiprocessing import Process
+import sysv_ipc
 
 from random import randint
 

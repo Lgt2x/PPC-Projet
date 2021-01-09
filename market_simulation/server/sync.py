@@ -15,10 +15,10 @@ class ServerSync(ServerProcess):
     and manual, waiting for the user to manually advance in time
     """
 
-    def __init__(self, compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex, weather_shared,
+    def __init__(self, compute_barrier, write_barrier, price_shared, weather_shared,
                  ipc_key, mode, time_interval):
-        super(ServerSync, self).__init__(compute_barrier, write_barrier, price_shared, price_mutex, weather_mutex,
-                                   weather_shared, ipc_key)
+        super(ServerSync, self).__init__(compute_barrier, write_barrier, price_shared,
+                                        weather_shared, ipc_key)
         self.mode = mode
         self.ipc_key = ipc_key
         self.time_interval = time_interval

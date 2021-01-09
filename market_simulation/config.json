@@ -13,9 +13,9 @@
     "temperature": 25
   },
   "market": {
-    "political": false,
-    "economy": false,
-    "speculation": false
+    "political_score": 100,
+    "economy_score": 100,
+    "speculation_score": 100
   },
   "cities": {
     "nb_houses": 10,

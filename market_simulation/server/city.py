@@ -4,9 +4,6 @@ City object, to simulate a bunch of houses consuming electricity
 from multiprocessing import Barrier
 from random import randint
 
-import sysv_ipc
-import os
-
 from .ServerProcess import ServerProcess
 from .home import Home
 

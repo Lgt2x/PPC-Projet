@@ -10,7 +10,7 @@ class Client:
     Client class, used to communicate to the server using an IPC message queue
     """
 
-    def __init__(self, key):
+    def __init__(self, key: int):
         try:
             self.message_queue = sysv_ipc.MessageQueue(key)
         except sysv_ipc.ExistentialError:
@@ -19,7 +19,7 @@ class Client:
 
         print('Connection established. Enter "end" to end the simulation')
 
-    def process(self, message):
+    def process(self, message: str) -> int:
         """
         sends a message to the server and wait for it to respond
         :param message: a string message
@@ -35,7 +35,8 @@ class Client:
         return int(server_response)
 
 
-""" Main client loop
+"""
+    Main client loop
     takes an only argument, the ipc key id to communicate with the server
 """
 if __name__ == "__main__":
