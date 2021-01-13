@@ -2,8 +2,8 @@
 Contains Politics class, which simulates political events happening
 """
 import os
-from multiprocessing import Process
 import signal
+from multiprocessing import Process
 from random import randint
 from time import sleep
 

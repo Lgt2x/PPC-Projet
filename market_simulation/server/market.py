@@ -22,19 +22,25 @@ class Market(ServerProcess):
     """
 
     def __init__(
-            self,
-            compute_barrier: multiprocessing.Barrier,
-            write_barrier: multiprocessing.Barrier,
-            price_shared: multiprocessing.Value,
-            weather_shared: multiprocessing.Array,
-            ipc_key: int,
-            politics: int,
-            economy: int,
-            nb_houses: int,
-            ipc_house: int,
+        self,
+        compute_barrier: multiprocessing.Barrier,
+        write_barrier: multiprocessing.Barrier,
+        price_shared: multiprocessing.Value,
+        weather_shared: multiprocessing.Array,
+        ipc_key: int,
+        politics: int,
+        economy: int,
+        nb_houses: int,
+        ipc_house: int,
+        ipc_message_type: int,
     ):
         super(Market, self).__init__(
-            compute_barrier, write_barrier, price_shared, weather_shared, ipc_key
+            compute_barrier,
+            write_barrier,
+            price_shared,
+            weather_shared,
+            ipc_key,
+            ipc_message_type,
         )
 
         # Political climate, rated from 0 to 100
@@ -49,8 +55,12 @@ class Market(ServerProcess):
 
         self.nb_houses = nb_houses  # Number of houses
         self.price_shared = price_shared  # Price of kWh
-        self.mq_house = MessageQueue(ipc_house)  # Message queue to communicate with houses
-        self.daily_consumption = Value("d")  # Total consumption of the houses on this day
+        self.mq_house = MessageQueue(
+            ipc_house
+        )  # Message queue to communicate with houses
+        self.daily_consumption = Value(
+            "d"
+        )  # Total consumption of the houses on this day
         self.surplus = Value("d")  # Surplus of production
         self.waiting_houses = collections.deque()  # Free energy waiting queue
         self.waiting_lock = multiprocessing.Lock()  # Lock to access this queue
@@ -64,9 +74,9 @@ class Market(ServerProcess):
         self.workers = 5
 
         # Coefficients for energy price
-        self.gamma = 0.98
-        self.alpha = [0.1, 0.1, 0.1]
-        self.beta = [0.1, 0.1, 0.1]
+        self.gamma = 0.99
+        self.alpha = [0.001, 0.0001, 0.0001]
+        self.beta = [0.001, 0.001, 0.001]
 
         self.market_pid = os.getpid()
         self.economics_process = Economics(self.market_pid)
@@ -109,31 +119,27 @@ class Market(ServerProcess):
         #   - Negative if the house sells its surplus energy and has consumption < 0
 
         if consumption > 0:  # If production < consumption
-            print("consumption")
             with self.surplus.get_lock():  # Use the surplus given for free by other houses
                 if self.surplus.value >= consumption:
-                    print(str(self.surplus.value))
-                    print("cover" + str(consumption))
                     # The surplus can cover all consumption
                     self.surplus.value -= consumption
                     consumption = 0
                 else:  # The surplus can't cover all consumption
-                    print(str(consumption))
-                    consumption = - self.surplus.value
+                    consumption -= self.surplus.value
                     self.surplus.value = 0
 
             with self.waiting_lock:  # Use free givers if you still have to pay
                 while consumption > 0 and self.waiting_houses:  # While there is a giver
                     house_giving, surplus_house = self.waiting_houses.popleft()
                     if surplus_house >= consumption:
-                        print(str(surplus_house))
-                        surplus_house -= consumption  # decrease the surplus of this house
+                        surplus_house -= (
+                            consumption  # decrease the surplus of this house
+                        )
                         # and put it back in the first position of the queue
                         self.waiting_houses.appendleft((house_giving, surplus_house))
                         consumption = 0
                     else:  # All the surplus energy is consumed
                         consumption -= surplus_house
-                        print(str(consumption))
                         # Tell the giver house its energy has been taken for free
                         self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
 
@@ -158,7 +164,10 @@ class Market(ServerProcess):
         # Get the current price
         with self.price_shared.get_lock():
             # Send back the bill price to the house
-            self.mq_house.send(str(consumption * self.price_shared.value).encode(), type=house + 10 ** 6)
+            self.mq_house.send(
+                str(consumption * self.price_shared.value).encode(),
+                type=house + 10 ** 6,
+            )
 
         # Increase the daily energy sold and bought
         with self.daily_consumption.get_lock():
@@ -199,14 +208,14 @@ class Market(ServerProcess):
         self.economy.get_lock().acquire()
         with self.price_shared.get_lock():
             self.price_shared.value = (
-                    self.gamma * self.price_shared.value
-                    + self.alpha[0] * temperature
-                    + self.alpha[1] * cloud_coverage
-                    + self.alpha[2] * self.daily_consumption.value
-                    + self.beta[0] * self.politics.value
-                    + self.beta[1] * self.economy.value
+                self.gamma * self.price_shared.value
+                + self.alpha[0] * 1 / temperature
+                + self.alpha[1] * cloud_coverage
+                + self.alpha[2] * self.daily_consumption.value
+                + self.beta[0] * self.politics.value
+                + self.beta[1] * self.economy.value
             )
-            print(f"New prize is {self.price_shared.value}$/kWh")
+            print(f"New prize is {self.price_shared.value} €/kWh")
         self.daily_consumption.get_lock().release()
         self.politics.get_lock().release()
         self.economy.get_lock().release()
@@ -220,9 +229,10 @@ class Market(ServerProcess):
             self.politics.value = min(100, self.politics.value + 10)
             print(f"Politics situation: {self.politics.value}/100")
 
-    def terminate(self) -> None:
-        super(Market, self).terminate()
-        self.economics_process.terminate()
-        self.politics_process.terminate()
+    def kill(self):
+        print(f"Stopping market, politics and economics")
 
-        print("Market and children terminated")
+        self.politics_process.kill()
+        self.economics_process.kill()
+
+        super(Market, self).kill()

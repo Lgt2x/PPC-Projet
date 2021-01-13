@@ -2,6 +2,7 @@
 Defines abstract class from which every server class derives
 """
 from multiprocessing import Process, Barrier, Value
+
 from sysv_ipc import MessageQueue
 
 
@@ -17,6 +18,7 @@ class ServerProcess(Process):
         price_shared: Value,
         weather_shared: Value,
         ipc_key: int,
+        ipc_message_type: int,
     ):
         super(ServerProcess, self).__init__()
 
@@ -27,12 +29,14 @@ class ServerProcess(Process):
         self.weather_shared = weather_shared
 
         self.server_mq = MessageQueue(ipc_key)
+        self.ipc_message_type = ipc_message_type
 
     def run(self):
         """
         Method called when the process starts
         Calls compute and write barriers
         """
+
         # Wait for every simulation object to call the compute barrier
         self.update()
         self.compute_barrier.wait()
@@ -44,13 +48,13 @@ class ServerProcess(Process):
         # Then runs again
         self.run()
 
-    def update(self):
+    def update(self) -> None:
         """
         Updates attributes to reflect changes in the simulation
         Overridden in sub-class
         """
 
-    def write(self):
+    def write(self) -> None:
         """
         Writes attributes to the shared memory segments
         Overridden in sub-class

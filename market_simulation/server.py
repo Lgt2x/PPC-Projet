@@ -32,7 +32,9 @@ class Server:
             # Create the different IPC message queues we will be using
             self.client_mq = self.create_ipc(json_config["server"]["ipc_key_client"])
             self.house_mq = self.create_ipc(json_config["server"]["ipc_key_house"])
-            self.house_mq = self.create_ipc(json_config["server"]["ipc_key_processes"],)
+            self.processes_mq = self.create_ipc(
+                json_config["server"]["ipc_key_processes"]
+            )
 
             # Create a barrier for synchronization
             # 4 processes need to be synchronized : Weather, City, Market and Server Sync
@@ -61,6 +63,7 @@ class Server:
                 nb_houses=json_config["cities"]["nb_houses"],
                 average_conso=json_config["cities"]["average_conso"],
                 max_prod=json_config["cities"]["max_prod"],
+                ipc_message_type=1,
             )
 
             self.market = Market(
@@ -73,6 +76,7 @@ class Server:
                 economy=json_config["market"]["economy_score"],
                 nb_houses=json_config["cities"]["nb_houses"],
                 ipc_house=json_config["server"]["ipc_key_house"],
+                ipc_message_type=2,
             )
 
             self.weather = Weather(
@@ -83,6 +87,7 @@ class Server:
                 ipc_key=json_config["server"]["ipc_key_processes"],
                 temperature=json_config["weather"]["temperature"],
                 cloud_coverage=json_config["weather"]["cloud_coverage"],
+                ipc_message_type=3,
             )
 
         self.sync = ServerSync(
@@ -93,6 +98,7 @@ class Server:
             ipc_key=json_config["server"]["ipc_key_processes"],
             mode=json_config["server"]["sync"]["auto"],
             time_interval=json_config["server"]["sync"]["time_interval"],
+            ipc_message_type=4,
         )
 
         # Starting all processes
@@ -101,12 +107,12 @@ class Server:
         self.market.start()
         self.sync.start()
 
-        signal.signal(signal.SIGKILL, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
         print("Initialization complete")
 
-    def signal_handler(self, sig, frame):
-        print(sig, frame)
+    def signal_handler(self, _, _2):
+        self.stop()
 
     def process(self, message: str) -> int:
         """
@@ -117,7 +123,7 @@ class Server:
         if not message:
             return 0
 
-        message = message[0].decode
+        message = message[0].decode()
 
         if message == "end":
             return self.stop()
@@ -152,19 +158,22 @@ class Server:
         Deletes message queue, and ends processes
         """
 
+        print("\n***** Begin stop process")
         # Send a zero (termination) code to the client
         message = "0".encode()
         self.client_mq.send(message=message, type=2)
 
-        # Message them to suicide
-        self.city.terminate()
-        self.weather.terminate()
-        self.market.terminate()
-        self.sync.terminate()
+        # Killing all processes
+        self.sync.kill()
+        self.market.kill()
+        self.weather.kill()
+        for home in self.city.homes:
+            home.kill()
+        self.city.kill()
 
-        print("Server stopped")
+        print("All processes stopped")
 
-        return 0
+        return -1
 
     @staticmethod
     def create_ipc(ipc_key: int) -> sysv_ipc.MessageQueue:
@@ -195,6 +204,9 @@ if __name__ == "__main__":
         print("Usage : python server.py <config_file>")
         sys.exit(1)
 
-    while response := server.process(server.receive()):
-        #print(response)
+    while response := server.process(server.receive()) != -1:
+        # print(response)
         pass
+
+    print("Stopping server, bye :)")
+    sys.exit(0)

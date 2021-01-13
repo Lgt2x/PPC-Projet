@@ -1,10 +1,10 @@
 """
 Home process, used to simulate a house
 """
-from multiprocessing import Process
-import sysv_ipc
-
+from multiprocessing import Process, Barrier, Array
 from random import randint
+
+import sysv_ipc
 
 
 class Home(Process):
@@ -15,14 +15,13 @@ class Home(Process):
 
     def __init__(
         self,
-        house_type,
-        ipc_key,
-        compute_barrier,
-        weather_shared,
-        average_conso,
-        max_prod,
-        id,
-
+        house_type: int,
+        ipc_key: int,
+        compute_barrier: Barrier,
+        weather_shared: Array,
+        average_conso: int,
+        max_prod: int,
+        pid: int,
     ):
         super(Home, self).__init__()
 
@@ -34,7 +33,7 @@ class Home(Process):
         self.bill = 0
 
         self.market_mq = sysv_ipc.MessageQueue(ipc_key)
-        self.home_pid = id
+        self.home_pid = pid
 
     def run(self):
         # Home inhabitants check local weather
@@ -67,12 +66,14 @@ class Home(Process):
 
         # Get the bill from the market
         self.bill = self.market_mq.receive(type=self.home_pid + 10 ** 6)[0].decode()
+        print(
+            f"updated home {self.home_pid}, bill : {self.bill} €, exchanges with market : {-total} kWh"
+        )
 
-        print(f"updated home {self.home_pid}, {self.bill}")
+        self.bill = 0  # after the turn the bill is reinitialized
 
         # All done, now wait the barrier
         self.compute_barrier.wait()
-
         # And update again
         self.run()
 
@@ -92,6 +93,6 @@ class Home(Process):
 
         return cons
 
-    def terminate(self) -> None:
-        super(Home, self).terminate()
-        print(f"House {self.home_pid} terminated")
+    def kill(self):
+        print(f"Stopping house {self.home_pid}")
+        super(Home, self).kill()

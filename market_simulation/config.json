@@ -3,9 +3,10 @@
     "ipc_key_client": 128,
     "ipc_key_processes": 129,
     "ipc_key_house": 130,
+    "ipc_key_city": 131,
     "sync" : {
       "auto": true,
-      "time_interval": 3
+      "time_interval": 7
     }
   },
   "weather": {
@@ -17,7 +18,7 @@
     "economy_score": 100
   },
   "cities": {
-    "nb_houses": 10,
+    "nb_houses": 5,
     "average_conso": 15,
     "max_prod": 15
   }

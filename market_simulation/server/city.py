@@ -1,10 +1,8 @@
 """
 City object, to simulate a bunch of houses consuming electricity
 """
-from multiprocessing import Barrier, Value, Array
+from multiprocessing import Barrier, Value
 from random import randint
-
-from blinker import signal
 
 from .ServerProcess import ServerProcess
 from .home import Home
@@ -26,9 +24,15 @@ class City(ServerProcess):
         nb_houses: int,
         average_conso: int,
         max_prod: int,
+        ipc_message_type: int,
     ):
         super(City, self).__init__(
-            compute_barrier, write_barrier, price_shared, weather_shared, ipc_key
+            compute_barrier,
+            write_barrier,
+            price_shared,
+            weather_shared,
+            ipc_key,
+            ipc_message_type,
         )
 
         self.nb_houses = nb_houses
@@ -44,7 +48,7 @@ class City(ServerProcess):
                 weather_shared=weather_shared,
                 average_conso=average_conso,
                 max_prod=max_prod,
-                id=i + 1,  # can't be null
+                pid=i + 1,  # can't be null
             )
             for i in range(self.nb_houses)
         ]
