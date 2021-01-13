@@ -1,8 +1,10 @@
 """
 City object, to simulate a bunch of houses consuming electricity
 """
-from multiprocessing import Barrier, Value
+from multiprocessing import Barrier, Value, Array
 from random import randint
+
+from blinker import signal
 
 from .ServerProcess import ServerProcess
 from .home import Home
@@ -56,6 +58,6 @@ class City(ServerProcess):
 
     def terminate(self):
         for home in self.homes:
-            home.join()
+            home.terminate()
 
         print("all house processes finished")

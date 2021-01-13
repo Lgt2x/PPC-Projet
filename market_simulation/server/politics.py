@@ -13,8 +13,9 @@ class Politics(Process):
     Simulates political events, sending signal to the market randomly
     """
 
-    def __init__(self):
+    def __init__(self, ppid):
         super(Politics, self).__init__()
+        self.ppid = ppid
 
     def run(self) -> None:
         """
@@ -23,8 +24,7 @@ class Politics(Process):
         while True:
             self.signal(randint(1, 4))
 
-    @staticmethod
-    def signal(time: int) -> None:
+    def signal(self, time: int) -> None:
         """
         Sends a signal to the market (parent) process,
         after sleeping specified time
@@ -32,4 +32,4 @@ class Politics(Process):
         :return:
         """
         sleep(time)
-        os.kill(int(os.getppid()), signal.SIGUSR1)
+        os.kill(int(self.ppid), signal.SIGUSR1)

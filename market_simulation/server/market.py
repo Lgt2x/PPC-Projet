@@ -5,6 +5,7 @@ reacting to external factors
 import collections
 import concurrent.futures
 import multiprocessing
+import os
 import signal
 from multiprocessing import Value
 
@@ -67,8 +68,9 @@ class Market(ServerProcess):
         self.alpha = [0.1, 0.1, 0.1]
         self.beta = [0.1, 0.1, 0.1]
 
-        self.economics_process = Economics()
-        self.politics_process = Politics()
+        self.market_pid = os.getpid()
+        self.economics_process = Economics(self.market_pid)
+        self.politics_process = Politics(self.market_pid)
         self.economics_process.start()
         self.politics_process.start()
 
@@ -107,6 +109,7 @@ class Market(ServerProcess):
         #   - Negative if the house sells its surplus energy and has consumption < 0
 
         if consumption > 0:  # If production < consumption
+            print("consumption")
             with self.surplus.get_lock():  # Use the surplus given for free by other houses
                 if self.surplus.value >= consumption:
                     print(str(self.surplus.value))
@@ -135,6 +138,7 @@ class Market(ServerProcess):
                         self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
 
         else:  # If production > consumption
+            print("production")
             if behaviour == 1:  # Gives away production
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
@@ -215,3 +219,10 @@ class Market(ServerProcess):
         with self.politics.get_lock():
             self.politics.value = min(100, self.politics.value + 10)
             print(f"Politics situation: {self.politics.value}/100")
+
+    def terminate(self) -> None:
+        super(Market, self).terminate()
+        self.economics_process.terminate()
+        self.politics_process.terminate()
+
+        print("Market and children terminated")

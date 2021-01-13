@@ -22,6 +22,7 @@ class Home(Process):
         average_conso,
         max_prod,
         id,
+
     ):
         super(Home, self).__init__()
 
