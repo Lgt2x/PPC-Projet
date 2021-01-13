@@ -60,8 +60,6 @@ class City(ServerProcess):
     def update(self):
         self.barrier.wait()
 
-    def terminate(self):
-        for home in self.homes:
-            home.terminate()
-
-        print("all house processes finished")
+    def kill(self) -> None:
+        print("Stopping city")
+        super(City, self).kill()
