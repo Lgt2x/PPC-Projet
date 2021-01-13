@@ -39,5 +39,5 @@ class Weather(ServerProcess):
             self.weather_shared[0] += randint(-5, 5)  # Temperature
             self.weather_shared[1] = randint(0, 100)  # Cloud coverage
             print(
-                f"Weather for next turn : {self.weather_shared[0]}°C, Cloud coverage {self.weather_shared}%"
+                f"Weather for next turn : {self.weather_shared[0]}°C, Cloud coverage {self.weather_shared[1]}%"
             )

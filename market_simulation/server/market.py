@@ -2,6 +2,7 @@
 Market process, simulating the electricity market,
 reacting to external factors
 """
+import collections
 import concurrent.futures
 import multiprocessing
 import signal
@@ -20,40 +21,42 @@ class Market(ServerProcess):
     """
 
     def __init__(
-        self,
-        compute_barrier: multiprocessing.Barrier,
-        write_barrier: multiprocessing.Barrier,
-        price_shared: multiprocessing.Value,
-        weather_shared: multiprocessing.Array,
-        ipc_key: int,
-        politics: int,
-        economy: int,
-        nb_houses: int,
-        ipc_house: int,
+            self,
+            compute_barrier: multiprocessing.Barrier,
+            write_barrier: multiprocessing.Barrier,
+            price_shared: multiprocessing.Value,
+            weather_shared: multiprocessing.Array,
+            ipc_key: int,
+            politics: int,
+            economy: int,
+            nb_houses: int,
+            ipc_house: int,
     ):
         super(Market, self).__init__(
             compute_barrier, write_barrier, price_shared, weather_shared, ipc_key
         )
 
+        # Political climate, rated from 0 to 100
         self.politics = Value("i")
         with self.politics.get_lock():
             self.politics.value = politics
 
+        # Economics climate, rated from 0 to 100
         self.economy = Value("i")
         with self.economy.get_lock():
             self.economy.value = economy
 
-        self.nb_houses = nb_houses
-        self.price_shared = price_shared
-
-        self.mq_house = MessageQueue(ipc_house)
-
-        self.consumption = Value("d")
-        self.surplus = Value("d")
+        self.nb_houses = nb_houses  # Number of houses
+        self.price_shared = price_shared  # Price of kWh
+        self.mq_house = MessageQueue(ipc_house)  # Message queue to communicate with houses
+        self.daily_consumption = Value("d")  # Total consumption of the houses on this day
+        self.surplus = Value("d")  # Surplus of production
+        self.waiting_houses = collections.deque()  # Free energy waiting queue
+        self.waiting_lock = multiprocessing.Lock()  # Lock to access this queue
 
         # Set default values
-        with self.consumption.get_lock():
-            self.consumption.value = 0
+        with self.daily_consumption.get_lock():
+            self.daily_consumption.value = 0
         with self.surplus.get_lock():
             self.surplus.value = 0
 
@@ -79,26 +82,15 @@ class Market(ServerProcess):
         """
         Decreases the economical or political score when a signal is sent
         :param sig: signal_type
-        :param _:
-        :return:
+        :param _: ignored
         """
         if sig == signal.SIGUSR1:
             with self.politics.get_lock():
                 self.politics.value = max(0, self.politics.value - 30)
-                print(
-                    "\n\nPolitics score goes down :"
-                    + str(self.politics.value)
-                    + "/100\n\n"
-                )
 
         elif sig == signal.SIGUSR2:
             with self.economy.get_lock():
                 self.economy.value = max(0, self.economy.value - 30)
-                print(
-                    "\n\nEconomy score goes down :"
-                    + str(self.economy.value)
-                    + "/100\n\n"
-                )
 
     def transaction(self, message: str, house: int):
         """
@@ -110,46 +102,63 @@ class Market(ServerProcess):
         behaviour = int(behaviour)
 
         # Send back the bill price, which is :
-        #   - Positive if the total consumption is greater than 0,
+        #   - Positive if the total consumption is greater than 0 after free energy had been taken
         #   - Null if the house gives away its surplus energy and has consumption < 0
         #   - Negative if the house sells its surplus energy and has consumption < 0
 
-        with self.price_shared.get_lock():
-            price_kwh = self.price_shared.value
-
         if consumption > 0:  # If production < consumption
             with self.surplus.get_lock():  # Use the surplus given for free by other houses
-                if (
-                    self.surplus.value > consumption
-                ):  # The surplus can cover all consumption
+                if self.surplus.value >= consumption:
+                    print(str(self.surplus.value))
+                    print("cover" + str(consumption))
+                    # The surplus can cover all consumption
                     self.surplus.value -= consumption
-                    bill = 0
+                    consumption = 0
                 else:  # The surplus can't cover all consumption
-                    bill = price_kwh * (consumption - self.surplus.value)
+                    print(str(consumption))
+                    consumption = - self.surplus.value
                     self.surplus.value = 0
-                print(
-                    f"House {house} payed ${bill}. Surplus is now ${self.surplus.value}"
-                )
+
+            with self.waiting_lock:  # Use free givers if you still have to pay
+                while consumption > 0 and self.waiting_houses:  # While there is a giver
+                    house_giving, surplus_house = self.waiting_houses.popleft()
+                    if surplus_house >= consumption:
+                        print(str(surplus_house))
+                        surplus_house -= consumption  # decrease the surplus of this house
+                        # and put it back in the first position of the queue
+                        self.waiting_houses.appendleft((house_giving, surplus_house))
+                        consumption = 0
+                    else:  # All the surplus energy is consumed
+                        consumption -= surplus_house
+                        print(str(consumption))
+                        # Tell the giver house its energy has been taken for free
+                        self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
+
         else:  # If production > consumption
             if behaviour == 1:  # Gives away production
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
-                bill = 0
+                consumption = 0
                 print(
                     f"House {house} gave ${-consumption}. Surplus is now ${self.surplus.value}"
                 )
-            else:  # The house sells its excess production
-                bill = price_kwh * consumption  # Bill < 0
+            elif behaviour == 2:  # The house sells its excess production
                 print(
                     f"House {house} gave ${-consumption}. Surplus is now ${self.surplus.value}"
                 )
+            else:  # Put energy on wait queue to give it later, and eventually sell it if no takers
+                with self.waiting_lock:
+                    self.waiting_houses.append((house, consumption))
+                return  # Don't return the bill now, do it later
 
-        # Send back the bill price to the house
-        self.mq_house.send(str(bill).encode(), type=house + 10 ** 6)
+        # Get the current price
+        with self.price_shared.get_lock():
+            # Send back the bill price to the house
+            self.mq_house.send(str(consumption * self.price_shared.value).encode(), type=house + 10 ** 6)
 
-        # Increase the daily energy consumption
-        with self.consumption.get_lock():
-            self.consumption.value += consumption
+        # Increase the daily energy sold and bought
+        with self.daily_consumption.get_lock():
+            self.daily_consumption.value += consumption
 
     def update(self) -> None:
         """
@@ -160,6 +169,15 @@ class Market(ServerProcess):
             for _ in range(self.nb_houses):
                 message, house = self.mq_house.receive()
                 pool.submit(self.transaction, message, house)
+
+        with self.price_shared.get_lock():
+            price_kwh = self.price_shared.value
+
+        # Type 3 houses (sell if no takers) if all the surplus isn't totally consumed
+        while self.waiting_houses:
+            house_giving, surplus_house = self.waiting_houses.popleft()
+            bill = -(price_kwh * surplus_house)
+            self.mq_house.send(str(bill).encode(), type=house_giving)
 
     def write(self) -> None:
         """
@@ -172,20 +190,20 @@ class Market(ServerProcess):
             cloud_coverage = self.weather_shared[1]
 
         # Update the price
-        self.consumption.get_lock().acquire()
+        self.daily_consumption.get_lock().acquire()
         self.politics.get_lock().acquire()
         self.economy.get_lock().acquire()
         with self.price_shared.get_lock():
             self.price_shared.value = (
-                self.gamma * self.price_shared.value
-                + self.alpha[0] * temperature
-                + self.alpha[1] * cloud_coverage
-                + self.alpha[2] * self.consumption.value
-                + self.beta[0] * self.politics.value
-                + self.beta[1] * self.economy.value
+                    self.gamma * self.price_shared.value
+                    + self.alpha[0] * temperature
+                    + self.alpha[1] * cloud_coverage
+                    + self.alpha[2] * self.daily_consumption.value
+                    + self.beta[0] * self.politics.value
+                    + self.beta[1] * self.economy.value
             )
             print(f"New prize is {self.price_shared.value}$/kWh")
-        self.consumption.get_lock().release()
+        self.daily_consumption.get_lock().release()
         self.politics.get_lock().release()
         self.economy.get_lock().release()
 

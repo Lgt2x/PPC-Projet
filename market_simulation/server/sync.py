@@ -40,13 +40,13 @@ class ServerSync(ServerProcess):
         Used to sync every other subprocess, waiting the barrier
         when timer expired OR when received the instruction to do so
         """
-
+        print(f"\n\n***** Turn {self.turn} ended, begin turn {self.turn + 1} *****")
         if self.mode:  # auto
             sleep(self.time_interval)
-        else:  # Manual
+        else:  # Manual : not implemented
             self.message_queue.receive()
 
-        print("timer expired")
+        print("Timer expired, barrier lifted")
 
     def write(self):
-        print(f"***** Turn {self.turn} ended, begin turn {self.turn+1}*****\n")
+        print(f"\n***** Write phase begin for turn {self.turn} *****")

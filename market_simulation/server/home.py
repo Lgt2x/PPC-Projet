@@ -60,6 +60,7 @@ class Home(Process):
         # Depending on their type, houses might :
         # `1` : give away the surplus of production
         # `2` : sell it to the market
+        # `3` : sell it if no takers
         message = str(self.house_type) + ";" + str(total)
         self.market_mq.send(message.encode(), type=self.home_pid)
 
@@ -89,3 +90,7 @@ class Home(Process):
             cons += 10
 
         return cons
+
+    def terminate(self) -> None:
+        super(Home, self).terminate()
+        print(f"House {self.home_pid} terminated")

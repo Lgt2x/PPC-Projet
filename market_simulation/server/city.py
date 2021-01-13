@@ -36,7 +36,7 @@ class City(ServerProcess):
 
         self.homes = [
             Home(
-                house_type=randint(1, 2),  # type of house
+                house_type=randint(1, 3),  # type of house
                 ipc_key=ipc_key_houses,
                 compute_barrier=self.barrier,
                 weather_shared=weather_shared,

@@ -2,11 +2,13 @@
 Server class for the market simulation
 Configured by a json file
 """
-
+import signal
 import sys
 from multiprocessing import Array, Barrier, Value
 import json
 import os
+from time import sleep
+
 import sysv_ipc
 
 from server.sync import ServerSync
@@ -99,7 +101,12 @@ class Server:
         self.market.start()
         self.sync.start()
 
+        signal.signal(signal.SIGKILL, self.signal_handler)
+
         print("Initialization complete")
+
+    def signal_handler(self, sig, frame):
+        print(sig, frame)
 
     def process(self, message: str) -> int:
         """
@@ -107,11 +114,14 @@ class Server:
         :param message: a string
         :return:
         """
-        print(message)
+        if not message:
+            return 0
+
         message = message[0].decode
 
         if message == "end":
-            return self.terminate()
+            return self.stop()
+
         return self.error()
 
     def receive(self):
@@ -119,7 +129,13 @@ class Server:
         Receives a message from the ipc client
         :return:
         """
-        return self.client_mq.receive(type=1)
+        sleep(0.1)
+        try:
+            message = self.client_mq.receive(type=1, block=False)
+        except sysv_ipc.BusyError:
+            message = None
+
+        return message
 
     def error(self) -> int:
         """
@@ -130,7 +146,7 @@ class Server:
         self.client_mq.send("-1".encode(), type=2)
         return 1
 
-    def terminate(self) -> int:
+    def stop(self) -> int:
         """
         Terminates the server process
         Deletes message queue, and ends processes
@@ -141,9 +157,12 @@ class Server:
         self.client_mq.send(message=message, type=2)
 
         # Message them to suicide
-        self.city.join()
-        self.weather.join()
-        self.market.join()
+        self.city.terminate()
+        self.weather.terminate()
+        self.market.terminate()
+        self.sync.terminate()
+
+        print("Server stopped")
 
         return 0
 
@@ -175,3 +194,7 @@ if __name__ == "__main__":
     else:
         print("Usage : python server.py <config_file>")
         sys.exit(1)
+
+    while response := server.process(server.receive()):
+        #print(response)
+        pass
