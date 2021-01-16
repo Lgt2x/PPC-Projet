@@ -5,6 +5,8 @@ to the server through a shared memory
 from multiprocessing import Barrier, Value
 from random import randint
 
+from colorama import Fore, Style
+
 from .ServerProcess import ServerProcess
 
 
@@ -21,8 +23,6 @@ class Weather(ServerProcess):
         price_shared: Value,
         weather_shared: Value,
         ipc_key: int,
-        temperature: int,
-        cloud_coverage: int,
         ipc_message_type: int,
     ):
         super(Weather, self).__init__(
@@ -43,11 +43,12 @@ class Weather(ServerProcess):
         """
         with self.weather_shared.get_lock():
             self.weather_shared[0] += randint(-5, 5)  # Temperature
-            self.weather_shared[1] = randint(0, 100)  # Cloud coverage
+            self.weather_shared[0] = max(min(40, self.weather_shared[0]), -15)  # Stays in the interval [-15, 40]
+            self.weather_shared[1] = randint(1, 100)  # Cloud coverage
             print(
-                f"Weather for next turn : {self.weather_shared[0]}°C, Cloud coverage {self.weather_shared[1]}%\n"
+                f"{Fore.YELLOW}Weather for next turn : {self.weather_shared[0]}°C, Cloud coverage {self.weather_shared[1]}%{Style.RESET_ALL}\n"
             )
 
     def kill(self) -> None:
-        print("Stopping weather")
+        print(f"{Fore.RED}Stopping weather{Style.RESET_ALL}")
         super(Weather, self).kill()

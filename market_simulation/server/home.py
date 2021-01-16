@@ -1,10 +1,16 @@
 """
 Home process, used to simulate a house
 """
+
+from sys import setrecursionlimit
 from multiprocessing import Process, Barrier, Array
-from random import randint
+from random import randint, random
 
 import sysv_ipc
+from colorama import Fore, Style
+
+setrecursionlimit(10**6)  # Don't judge me okay
+TYPES = {1: "Give", 2: "Sell", 3: "Both"}  # Defining household types
 
 
 class Home(Process):
@@ -17,18 +23,19 @@ class Home(Process):
         self,
         house_type: int,
         ipc_key: int,
-        compute_barrier: Barrier,
+        home_barrier: Barrier,
         weather_shared: Array,
         average_conso: int,
-        max_prod: int,
+        prod_average: int,
         pid: int,
     ):
         super(Home, self).__init__()
 
         self.house_type = house_type
         self.weather_shared = weather_shared
-        self.compute_barrier = compute_barrier
-        self.production = max_prod / 2  # initial conditions
+        self.home_barrier = home_barrier
+        self.base_production = prod_average
+        self.production = prod_average  # initial conditions
         self.conso = average_conso  # initial conditions
         self.bill = 0
 
@@ -36,6 +43,12 @@ class Home(Process):
         self.home_pid = pid
 
     def run(self):
+        try:
+            self.transaction()
+        except KeyboardInterrupt:
+            print(f"Killing softly the house process {self.home_pid}\n", end="")
+
+    def transaction(self):
         # Home inhabitants check local weather
         # which influences their decisions on whether or not
         # they'll use electric heating or not (which is a major energy sink)
@@ -48,10 +61,10 @@ class Home(Process):
         # Random consumption based on the base value
 
         # Add the cloud coverage factor, diminishing the production
-        # TODO : verify the formula ?
-        if 0 <= cloud_coverage <= 60:
-            self.production = self.production + 0.1 * cloud_coverage
-        elif cloud_coverage > 60 or temperature > 35:
+        if 0 <= cloud_coverage <= 70:
+            # compute the solar production of each house with a small random factor
+            self.production = self.base_production + 10 * 1 / cloud_coverage + 2 * random()
+        elif cloud_coverage > 90 or temperature > 35:
             self.production = 0
 
         # Compute the energy situation of the house
@@ -65,15 +78,20 @@ class Home(Process):
         self.market_mq.send(message.encode(), type=self.home_pid)
 
         # Get the bill from the market
-        self.bill = self.market_mq.receive(type=self.home_pid + 10 ** 6)[0].decode()
+        self.bill = float(
+            self.market_mq.receive(type=self.home_pid + 10 ** 6)[0].decode()
+        )
+        color = Fore.RED if self.bill > 0 else Fore.GREEN
         print(
-            f"updated home {self.home_pid}, bill : {self.bill} €, exchanges with market : {-total} kWh"
+            f"Updated home {self.home_pid} \t── Type : {Home.get_type(self.house_type)} \t── Bill : {color} {'{:.2f}'.format(self.bill, 2)} "
+            f"€{Style.RESET_ALL} \t── "
+            f"Consumed : {'{:.2f}'.format(total)} kWh\n", end=""
         )
 
         self.bill = 0  # after the turn the bill is reinitialized
 
         # All done, now wait the barrier
-        self.compute_barrier.wait()
+        self.home_barrier.wait()
         # And update again
         self.run()
 
@@ -93,6 +111,10 @@ class Home(Process):
 
         return cons
 
+    @staticmethod
+    def get_type(behaviour_id: int) -> str:
+        return TYPES[behaviour_id]
+
     def kill(self):
-        print(f"Stopping house {self.home_pid}")
+        print(f"{Fore.RED}Stopping house {self.home_pid} {Style.RESET_ALL}")
         super(Home, self).kill()

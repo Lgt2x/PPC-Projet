@@ -37,16 +37,22 @@ class ServerProcess(Process):
         Calls compute and write barriers
         """
 
-        # Wait for every simulation object to call the compute barrier
-        self.update()
-        self.compute_barrier.wait()
+        try:
+            # Wait for every simulation object to call the compute barrier
+            self.update()
+            self.compute_barrier.wait()
 
-        # Wait for every simulation object to call the write barrier
-        self.write()
-        self.write_barrier.wait()
+            # Wait for every simulation object to call the write barrier
+            self.write()
+            self.write_barrier.wait()
 
-        # Then runs again
-        self.run()
+            # Then runs again
+            self.run()
+        except KeyboardInterrupt:
+            print(
+                "Process received interruption signal, killing softly the process\n",
+                end="",
+            )
 
     def update(self) -> None:
         """

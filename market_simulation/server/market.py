@@ -9,11 +9,11 @@ import os
 import signal
 from multiprocessing import Value
 
+from colorama import Fore, Style
 from sysv_ipc import MessageQueue
 
 from .ServerProcess import ServerProcess
-from .economics import Economics
-from .politics import Politics
+from .externalfactor import ExternalFactor
 
 
 class Market(ServerProcess):
@@ -33,6 +33,7 @@ class Market(ServerProcess):
         nb_houses: int,
         ipc_house: int,
         ipc_message_type: int,
+        time_interval: int
     ):
         super(Market, self).__init__(
             compute_barrier,
@@ -74,19 +75,24 @@ class Market(ServerProcess):
         self.workers = 5
 
         # Coefficients for energy price
-        self.gamma = 0.99
-        self.alpha = [0.001, 0.0001, 0.0001]
-        self.beta = [0.001, 0.001, 0.001]
-
-        self.market_pid = os.getpid()
-        self.economics_process = Economics(self.market_pid)
-        self.politics_process = Politics(self.market_pid)
-        self.economics_process.start()
-        self.politics_process.start()
+        self.gamma = 0.98
+        self.alpha = [0.0001, 0.0001, 0.000001]
+        self.beta = [0.025, 0.025, 0.025]
 
         # Politics : score between 0 and 100.
         # SIGUSR1 : politics situation deteriorates
         # SIGUSR2 : economics situation deteriorates
+        self.market_pid = os.getpid()
+        self.politics_process = ExternalFactor(
+            ppid=self.market_pid, name="politics", signal_code=signal.SIGUSR1, delay=time_interval*5
+        )
+        self.economics_process = ExternalFactor(
+            ppid=self.market_pid, name="economics", signal_code=signal.SIGUSR2, delay=time_interval*7
+        )
+        self.economics_process.start()
+        self.politics_process.start()
+
+        # Listen for signals
         signal.signal(signal.SIGUSR1, self.signal_handler)
         signal.signal(signal.SIGUSR2, self.signal_handler)
 
@@ -98,11 +104,11 @@ class Market(ServerProcess):
         """
         if sig == signal.SIGUSR1:
             with self.politics.get_lock():
-                self.politics.value = max(0, self.politics.value - 30)
+                self.politics.value = max(1, self.politics.value - 30)
 
         elif sig == signal.SIGUSR2:
             with self.economy.get_lock():
-                self.economy.value = max(0, self.economy.value - 30)
+                self.economy.value = max(1, self.economy.value - 30)
 
     def transaction(self, message: str, house: int):
         """
@@ -112,6 +118,10 @@ class Market(ServerProcess):
         """
         behaviour, consumption = map(float, message.decode().split(";"))
         behaviour = int(behaviour)
+
+        # Increase the daily energy sold and bought
+        with self.daily_consumption.get_lock():
+            self.daily_consumption.value += consumption
 
         # Send back the bill price, which is :
         #   - Positive if the total consumption is greater than 0 after free energy had been taken
@@ -144,19 +154,19 @@ class Market(ServerProcess):
                         self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
 
         else:  # If production > consumption
-            print("production")
             if behaviour == 1:  # Gives away production
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
                 consumption = 0
                 print(
-                    f"House {house} gave ${-consumption}. Surplus is now ${self.surplus.value}"
+                    f"House {house} gave away {'{:.2f}'.format(-consumption)}kWh, surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n", end=""
                 )
             elif behaviour == 2:  # The house sells its excess production
                 print(
-                    f"House {house} gave ${-consumption}. Surplus is now ${self.surplus.value}"
+                    f"House {house} sold {-consumption}kWh."
                 )
-            else:  # Put energy on wait queue to give it later, and eventually sell it if no takers
+            elif behaviour == 3:  # Put energy on wait queue to give it later, and eventually sell it if no takers
+                print(f"Put {'{:.2f}'.format(-consumption)}kWh from house {house} on giveaway queue\n", end="")
                 with self.waiting_lock:
                     self.waiting_houses.append((house, consumption))
                 return  # Don't return the bill now, do it later
@@ -168,10 +178,6 @@ class Market(ServerProcess):
                 str(consumption * self.price_shared.value).encode(),
                 type=house + 10 ** 6,
             )
-
-        # Increase the daily energy sold and bought
-        with self.daily_consumption.get_lock():
-            self.daily_consumption.value += consumption
 
     def update(self) -> None:
         """
@@ -190,7 +196,8 @@ class Market(ServerProcess):
         while self.waiting_houses:
             house_giving, surplus_house = self.waiting_houses.popleft()
             bill = -(price_kwh * surplus_house)
-            self.mq_house.send(str(bill).encode(), type=house_giving)
+            self.mq_house.send(str(bill).encode(), type=house_giving + 10**6)
+            print(f"No takers, buying {'{:.2f}'.format(surplus_house)}kWh from house {house_giving}")
 
     def write(self) -> None:
         """
@@ -209,13 +216,15 @@ class Market(ServerProcess):
         with self.price_shared.get_lock():
             self.price_shared.value = (
                 self.gamma * self.price_shared.value
-                + self.alpha[0] * 1 / temperature
+                + self.alpha[0] * 1 / (16 + temperature)
                 + self.alpha[1] * cloud_coverage
                 + self.alpha[2] * self.daily_consumption.value
                 + self.beta[0] * self.politics.value
                 + self.beta[1] * self.economy.value
             )
-            print(f"New prize is {self.price_shared.value} €/kWh")
+            print(
+                f"{Fore.BLUE}New price is {round(self.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"
+            )
         self.daily_consumption.get_lock().release()
         self.politics.get_lock().release()
         self.economy.get_lock().release()
@@ -223,14 +232,18 @@ class Market(ServerProcess):
         # Politics and economy tension go down, score goes up, with a limit of 100
         with self.economy.get_lock():
             self.economy.value = min(100, self.economy.value + 10)
-            print(f"Economy situation: {self.economy.value}/100")
+            print(
+                f"{Fore.MAGENTA}Economy situation: {self.economy.value}/100{Style.RESET_ALL}"
+            )
 
         with self.politics.get_lock():
             self.politics.value = min(100, self.politics.value + 10)
-            print(f"Politics situation: {self.politics.value}/100")
+            print(
+                f"{Fore.MAGENTA}Politics situation: {self.politics.value}/100{Style.RESET_ALL}"
+            )
 
     def kill(self):
-        print(f"Stopping market, politics and economics")
+        print(f"{Fore.RED}Stopping market, politics and economics{Style.RESET_ALL}")
 
         self.politics_process.kill()
         self.economics_process.kill()

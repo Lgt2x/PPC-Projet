@@ -4,6 +4,7 @@ Defines the class used for server sync
 from multiprocessing import Barrier, Value
 from time import sleep
 
+from colorama import Back, Fore, Style
 from sysv_ipc import MessageQueue
 
 from .ServerProcess import ServerProcess
@@ -47,10 +48,11 @@ class ServerSync(ServerProcess):
         Used to sync every other subprocess, waiting the barrier
         when timer expired OR when received the instruction to do so
         """
-        print(f"\n\n***** Turn {self.turn} ended, begin turn {self.turn + 1} *****")
+        print(
+            f"\n\n{Back.LIGHTBLUE_EX}{Fore.BLACK}***** Turn {self.turn} ended, begin turn {self.turn + 1} *****{Style.RESET_ALL}"
+        )
 
     def write(self):
-        print(f"\n***** Write phase begin for turn {self.turn} *****")
         self.turn += 1
 
         if self.mode:  # auto
@@ -61,5 +63,5 @@ class ServerSync(ServerProcess):
         print("Timer expired, begin next turn")
 
     def kill(self) -> None:
-        print("Stopping sync")
+        print(f"{Fore.RED}Stopping sync{Style.RESET_ALL}")
         super(ServerSync, self).kill()

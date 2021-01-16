@@ -6,7 +6,7 @@
     "ipc_key_city": 131,
     "sync" : {
       "auto": true,
-      "time_interval": 7
+      "time_interval": 0.2
     }
   },
   "weather": {
@@ -20,6 +20,6 @@
   "cities": {
     "nb_houses": 5,
     "average_conso": 15,
-    "max_prod": 15
+    "max_prod": 200
   }
 }
