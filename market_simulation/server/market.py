@@ -84,7 +84,7 @@ class Market(ServerProcess):
         # SIGUSR2 : economics situation deteriorates
         self.market_pid = os.getpid()
         self.politics_process = ExternalFactor(
-            ppid=self.market_pid, name="politics", signal_code=signal.SIGUSR1, delay=time_interval*5
+            ppid=self.market_pid, name="politics", signal_code=signal.SIGUSR1, delay=time_interval * 6
         )
         self.economics_process = ExternalFactor(
             ppid=self.market_pid, name="economics", signal_code=signal.SIGUSR2, delay=time_interval * 7
