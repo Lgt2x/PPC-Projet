@@ -57,7 +57,7 @@ class ServerSync(ServerProcess):
 
         if self.mode:  # auto
             sleep(self.time_interval)
-        else:  # Manual : not implemented
+        else:  # Manual : /!\ not implemented
             self.message_queue.receive()
 
         print("Timer expired, begin next turn")

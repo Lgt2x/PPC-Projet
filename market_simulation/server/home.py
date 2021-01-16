@@ -82,10 +82,12 @@ class Home(Process):
             self.market_mq.receive(type=self.home_pid + 10 ** 6)[0].decode()
         )
         color = Fore.RED if self.bill > 0 else Fore.GREEN
+        color_bill = Fore.RED if total > 0 else Fore.GREEN
+
         print(
             f"Updated home {self.home_pid} \t── Type : {Home.get_type(self.house_type)} \t── Bill : {color} {'{:.2f}'.format(self.bill, 2)} "
-            f"€{Style.RESET_ALL} \t── "
-            f"Consumed : {'{:.2f}'.format(total)} kWh\n", end=""
+            f"€{Style.RESET_ALL} ── "
+            f"Consumed : {color_bill}{'{:.2f}'.format(total)} kWh{Style.RESET_ALL}\n", end=""
         )
 
         self.bill = 0  # after the turn the bill is reinitialized

@@ -22,18 +22,18 @@ class Market(ServerProcess):
     """
 
     def __init__(
-        self,
-        compute_barrier: multiprocessing.Barrier,
-        write_barrier: multiprocessing.Barrier,
-        price_shared: multiprocessing.Value,
-        weather_shared: multiprocessing.Array,
-        ipc_key: int,
-        politics: int,
-        economy: int,
-        nb_houses: int,
-        ipc_house: int,
-        ipc_message_type: int,
-        time_interval: int
+            self,
+            compute_barrier: multiprocessing.Barrier,
+            write_barrier: multiprocessing.Barrier,
+            price_shared: multiprocessing.Value,
+            weather_shared: multiprocessing.Array,
+            ipc_key: int,
+            politics: int,
+            economy: int,
+            nb_houses: int,
+            ipc_house: int,
+            ipc_message_type: int,
+            time_interval: int
     ):
         super(Market, self).__init__(
             compute_barrier,
@@ -87,7 +87,7 @@ class Market(ServerProcess):
             ppid=self.market_pid, name="politics", signal_code=signal.SIGUSR1, delay=time_interval*5
         )
         self.economics_process = ExternalFactor(
-            ppid=self.market_pid, name="economics", signal_code=signal.SIGUSR2, delay=time_interval*7
+            ppid=self.market_pid, name="economics", signal_code=signal.SIGUSR2, delay=time_interval * 7
         )
         self.economics_process.start()
         self.politics_process.start()
@@ -133,22 +133,26 @@ class Market(ServerProcess):
                 if self.surplus.value >= consumption:
                     # The surplus can cover all consumption
                     self.surplus.value -= consumption
+                    print(f"House {house} took {'{:.2f}'.format(consumption)}kWh from surplus. Surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n", end="")
                     consumption = 0
                 else:  # The surplus can't cover all consumption
                     consumption -= self.surplus.value
+                    print(f"House {house} took {'{:.2f}'.format(self.surplus.value)}kWh from surplus, which is now null\n", end="")
                     self.surplus.value = 0
 
-            with self.waiting_lock:  # Use free givers if you still have to pay
+            with self.waiting_lock:  # Use free givers if the house still has to pay
                 while consumption > 0 and self.waiting_houses:  # While there is a giver
                     house_giving, surplus_house = self.waiting_houses.popleft()
                     if surplus_house >= consumption:
                         surplus_house -= (
                             consumption  # decrease the surplus of this house
                         )
+                        print(f"House {house} took {'{:.2f}'.format(consumption)} kWh from house {house_giving} surplus, which has now {'{:.2f}'.format(surplus_house)}kWh to give\n", end="")
                         # and put it back in the first position of the queue
                         self.waiting_houses.appendleft((house_giving, surplus_house))
                         consumption = 0
                     else:  # All the surplus energy is consumed
+                        print(f"House {house} took all {'{:.2f}'.format(surplus_house)} kWh from house {house_giving}'s giveaway\n", end="")
                         consumption -= surplus_house
                         # Tell the giver house its energy has been taken for free
                         self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
@@ -157,13 +161,14 @@ class Market(ServerProcess):
             if behaviour == 1:  # Gives away production
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
-                consumption = 0
                 print(
-                    f"House {house} gave away {'{:.2f}'.format(-consumption)}kWh, surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n", end=""
+                    f"House {house} gave away {'{:.2f}'.format(-consumption)}kWh, surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n",
+                    end=""
                 )
+                consumption = 0
             elif behaviour == 2:  # The house sells its excess production
                 print(
-                    f"House {house} sold {-consumption}kWh."
+                    f"House {house} sold {'{:.2f}'.format(-consumption)}kWh.\n", end=""
                 )
             elif behaviour == 3:  # Put energy on wait queue to give it later, and eventually sell it if no takers
                 print(f"Put {'{:.2f}'.format(-consumption)}kWh from house {house} on giveaway queue\n", end="")
@@ -195,9 +200,13 @@ class Market(ServerProcess):
         # Type 3 houses (sell if no takers) if all the surplus isn't totally consumed
         while self.waiting_houses:
             house_giving, surplus_house = self.waiting_houses.popleft()
-            bill = -(price_kwh * surplus_house)
-            self.mq_house.send(str(bill).encode(), type=house_giving + 10**6)
-            print(f"No takers, buying {'{:.2f}'.format(surplus_house)}kWh from house {house_giving}")
+            bill = (price_kwh * surplus_house)
+            self.mq_house.send(str(bill).encode(), type=house_giving + 10 ** 6)
+            print(f"No takers, buying {'{:.2f}'.format(-surplus_house)}kWh from house {house_giving}")
+
+        # Reset surplus
+        with self.surplus.get_lock():
+            self.surplus.value = 0
 
     def write(self) -> None:
         """
@@ -215,12 +224,12 @@ class Market(ServerProcess):
         self.economy.get_lock().acquire()
         with self.price_shared.get_lock():
             self.price_shared.value = (
-                self.gamma * self.price_shared.value
-                + self.alpha[0] * 1 / (16 + temperature)
-                + self.alpha[1] * cloud_coverage
-                + self.alpha[2] * self.daily_consumption.value
-                + self.beta[0] * 1/self.politics.value
-                + self.beta[1] * 1/self.economy.value
+                    self.gamma * self.price_shared.value
+                    + self.alpha[0] * 1 / (16 + temperature)
+                    + self.alpha[1] * cloud_coverage
+                    + self.alpha[2] * self.daily_consumption.value
+                    + self.beta[0] * 1 / self.politics.value
+                    + self.beta[1] * 1 / self.economy.value
             )
             print(
                 f"{Fore.BLUE}New price is {round(self.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"
