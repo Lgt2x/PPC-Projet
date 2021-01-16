@@ -33,9 +33,6 @@ class Weather(ServerProcess):
             ipc_key,
             ipc_message_type,
         )
-        with self.weather_shared.get_lock():
-            self.weather_shared[0] = temperature
-            self.weather_shared[1] = cloud_coverage
 
     def write(self):
         """

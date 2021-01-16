@@ -219,8 +219,8 @@ class Market(ServerProcess):
                 + self.alpha[0] * 1 / (16 + temperature)
                 + self.alpha[1] * cloud_coverage
                 + self.alpha[2] * self.daily_consumption.value
-                + self.beta[0] * self.politics.value
-                + self.beta[1] * self.economy.value
+                + self.beta[0] * 1/self.politics.value
+                + self.beta[1] * 1/self.economy.value
             )
             print(
                 f"{Fore.BLUE}New price is {round(self.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"

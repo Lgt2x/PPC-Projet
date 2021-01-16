@@ -55,6 +55,8 @@ class Server:
 
             # Shared memory for the energy price
             self.price_shared = Value("d")
+            with self.price_shared.get_lock():
+                self.price_shared.value = json_config["market"]["initial_price"]
 
             # Declaring the simulation processes
             self.city = City(

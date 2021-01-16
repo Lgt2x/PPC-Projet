@@ -24,7 +24,7 @@ class ExternalFactor(Process):
         Loops infinitely and sends signals to parent process
         """
         while True:
-            self.signal(randint(1, 4))
+            self.signal(random() * self.delay)
 
     def signal(self, time: float) -> None:
         """
