@@ -142,10 +142,9 @@ class Server:
 
         return self.error()
 
-    def receive(self):
+    def send_report(self) -> bool:
         """
-        Receives a message from the ipc client
-        :return: the message if there is one, None otherwise
+        Sends back a report to the client
         """
         message = []
 
