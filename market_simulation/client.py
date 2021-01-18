@@ -17,7 +17,8 @@ class Client:
             print(f"Cannot connect to message queue {key}, terminating.")
             sys.exit(1)
 
-        print('Connection established. Enter "end" to end the simulation')
+        print('Connection established. Enter "report" to see the current state of the simulation,'
+              'or "end" to end the simulation')
 
     def send_mq(self, message: str) -> str:
         """
