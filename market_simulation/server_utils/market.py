@@ -12,36 +12,29 @@ from multiprocessing import Value
 from colorama import Fore, Style
 from sysv_ipc import MessageQueue
 
-from .ServerProcess import ServerProcess
+from .serverprocess import ServerProcess
 from .externalfactor import ExternalFactor
 
 
 class Market(ServerProcess):
     """
-    Instantiated by the server, this class simulates the electricity market
+    Instantiated by the server_utils, this class simulates the electricity market
     """
 
     def __init__(
-            self,
-            compute_barrier: multiprocessing.Barrier,
-            write_barrier: multiprocessing.Barrier,
-            price_shared: multiprocessing.Value,
-            weather_shared: multiprocessing.Array,
-            ipc_key: int,
-            politics: int,
-            economy: int,
-            nb_houses: int,
-            ipc_house: int,
-            ipc_message_type: int,
-            time_interval: int
+        self,
+        compute_barrier: multiprocessing.Barrier,
+        write_barrier: multiprocessing.Barrier,
+        price_shared: multiprocessing.Value,
+        weather_shared: multiprocessing.Array,
+        politics: int,
+        economy: int,
+        nb_houses: int,
+        ipc_house: int,
+        time_interval: int,
     ):
-        super(Market, self).__init__(
-            compute_barrier,
-            write_barrier,
-            price_shared,
-            weather_shared,
-            ipc_key,
-            ipc_message_type,
+        super().__init__(
+            compute_barrier, write_barrier, price_shared, weather_shared,
         )
 
         # Political climate, rated from 0 to 100
@@ -84,10 +77,16 @@ class Market(ServerProcess):
         # SIGUSR2 : economics situation deteriorates
         self.market_pid = os.getpid()
         self.politics_process = ExternalFactor(
-            ppid=self.market_pid, name="politics", signal_code=signal.SIGUSR1, delay=time_interval * 6
+            ppid=self.market_pid,
+            name="politics",
+            signal_code=signal.SIGUSR1,
+            delay=time_interval * 6,
         )
         self.economics_process = ExternalFactor(
-            ppid=self.market_pid, name="economics", signal_code=signal.SIGUSR2, delay=time_interval * 7
+            ppid=self.market_pid,
+            name="economics",
+            signal_code=signal.SIGUSR2,
+            delay=time_interval * 7,
         )
         self.economics_process.start()
         self.politics_process.start()
@@ -112,7 +111,7 @@ class Market(ServerProcess):
 
     def transaction(self, message: str, house: int):
         """
-        Perform a transaction asynchronously with a house
+        Performs a transaction asynchronously with a house
         :param message: the ipc queue raw message received
         :param house: the pid of the house process
         """
@@ -133,11 +132,19 @@ class Market(ServerProcess):
                 if self.surplus.value >= consumption:
                     # The surplus can cover all consumption
                     self.surplus.value -= consumption
-                    print(f"House {house} took {'{:.2f}'.format(consumption)}kWh from surplus. Surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n", end="")
+                    print(
+                        f"House {house} took {'{:.2f}'.format(consumption)}kWh from surplus. "
+                        f"Surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n",
+                        end="",
+                    )
                     consumption = 0
                 else:  # The surplus can't cover all consumption
                     consumption -= self.surplus.value
-                    print(f"House {house} took {'{:.2f}'.format(self.surplus.value)}kWh from surplus, which is now null\n", end="")
+                    print(
+                        f"House {house} took {'{:.2f}'.format(self.surplus.value)}"
+                        f"kWh from surplus, which is now null\n",
+                        end="",
+                    )
                     self.surplus.value = 0
 
             with self.waiting_lock:  # Use free givers if the house still has to pay
@@ -147,12 +154,20 @@ class Market(ServerProcess):
                         surplus_house -= (
                             consumption  # decrease the surplus of this house
                         )
-                        print(f"House {house} took {'{:.2f}'.format(consumption)} kWh from house {house_giving} surplus, which has now {'{:.2f}'.format(surplus_house)}kWh to give\n", end="")
+                        print(
+                            f"House {house} took {'{:.2f}'.format(consumption)} kWh from house {house_giving} "
+                            f"surplus, which has now {'{:.2f}'.format(surplus_house)}kWh to give\n",
+                            end="",
+                        )
                         # and put it back in the first position of the queue
                         self.waiting_houses.appendleft((house_giving, surplus_house))
                         consumption = 0
                     else:  # All the surplus energy is consumed
-                        print(f"House {house} took all {'{:.2f}'.format(surplus_house)} kWh from house {house_giving}'s giveaway\n", end="")
+                        print(
+                            f"House {house} took all {'{:.2f}'.format(surplus_house)} "
+                            f"kWh from house {house_giving}'s giveaway\n",
+                            end="",
+                        )
                         consumption -= surplus_house
                         # Tell the giver house its energy has been taken for free
                         self.mq_house.send("0".encode(), type=house_giving + 10 ** 6)
@@ -162,16 +177,22 @@ class Market(ServerProcess):
                 with self.surplus.get_lock():
                     self.surplus.value -= consumption  # consumption is negative
                 print(
-                    f"House {house} gave away {'{:.2f}'.format(-consumption)}kWh, surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n",
-                    end=""
+                    f"House {house} gave away {'{:.2f}'.format(-consumption)}kWh, "
+                    f"surplus is now {'{:.2f}'.format(self.surplus.value)}kWh\n",
+                    end="",
                 )
                 consumption = 0
             elif behaviour == 2:  # The house sells its excess production
                 print(
                     f"House {house} sold {'{:.2f}'.format(-consumption)}kWh.\n", end=""
                 )
-            elif behaviour == 3:  # Put energy on wait queue to give it later, and eventually sell it if no takers
-                print(f"Put {'{:.2f}'.format(-consumption)}kWh from house {house} on giveaway queue\n", end="")
+            elif (
+                behaviour == 3
+            ):  # Put energy on wait queue to give it later, and eventually sell it if no takers
+                print(
+                    f"Put {'{:.2f}'.format(-consumption)}kWh from house {house} on giveaway queue\n",
+                    end="",
+                )
                 with self.waiting_lock:
                     self.waiting_houses.append((house, consumption))
                 return  # Don't return the bill now, do it later
@@ -200,9 +221,11 @@ class Market(ServerProcess):
         # Type 3 houses (sell if no takers) if all the surplus isn't totally consumed
         while self.waiting_houses:
             house_giving, surplus_house = self.waiting_houses.popleft()
-            bill = (price_kwh * surplus_house)
+            bill = price_kwh * surplus_house
             self.mq_house.send(str(bill).encode(), type=house_giving + 10 ** 6)
-            print(f"No takers, buying {'{:.2f}'.format(-surplus_house)}kWh from house {house_giving}")
+            print(
+                f"No takers, buying {'{:.2f}'.format(-surplus_house)}kWh from house {house_giving}"
+            )
 
         # Reset surplus
         with self.surplus.get_lock():
@@ -224,12 +247,12 @@ class Market(ServerProcess):
         self.economy.get_lock().acquire()
         with self.price_shared.get_lock():
             self.price_shared.value = (
-                    self.gamma * self.price_shared.value
-                    + self.alpha[0] * 1 / (16 + temperature)
-                    + self.alpha[1] * cloud_coverage
-                    + self.alpha[2] * self.daily_consumption.value
-                    + self.beta[0] * 1 / self.politics.value
-                    + self.beta[1] * 1 / self.economy.value
+                self.gamma * self.price_shared.value
+                + self.alpha[0] * 1 / (16 + temperature)
+                + self.alpha[1] * cloud_coverage
+                + self.alpha[2] * self.daily_consumption.value
+                + self.beta[0] * 1 / self.politics.value
+                + self.beta[1] * 1 / self.economy.value
             )
             print(
                 f"{Fore.BLUE}New price is {round(self.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"
@@ -252,9 +275,13 @@ class Market(ServerProcess):
             )
 
     def kill(self):
+        """
+        Kills softly the child processes and then himself
+        """
+
         print(f"{Fore.RED}Stopping market, politics and economics{Style.RESET_ALL}")
 
         self.politics_process.kill()
         self.economics_process.kill()
 
-        super(Market, self).kill()
+        super().kill()

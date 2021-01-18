@@ -1,5 +1,5 @@
 """
-Simulation client, used to give orders to the server
+Simulation client, used to give orders to the server_utils
 """
 import sys
 import sysv_ipc
@@ -7,7 +7,7 @@ import sysv_ipc
 
 class Client:
     """
-    Client class, used to communicate to the server using an IPC message queue
+    Client class, used to communicate to the server_utils using an IPC message queue
     """
 
     def __init__(self, key: int):
@@ -19,11 +19,11 @@ class Client:
 
         print('Connection established. Enter "end" to end the simulation')
 
-    def process(self, message: str) -> int:
+    def send_mq(self, message: str) -> str:
         """
-        sends a message to the server and wait for it to respond
+        sends a message to the server_utils and wait for it to respond
         :param message: a string message
-        :return: 0 to end, -1 for an error, 1 if ok
+        :return: the message sent back by the server
         """
         message = message.encode()
 
@@ -32,12 +32,22 @@ class Client:
 
         # Wait for a response
         server_response, _ = self.message_queue.receive(type=2)
-        return int(server_response)
+        return server_response.decode()
+
+    @staticmethod
+    def process(message: str) -> str:
+        if message == "end":
+            return "Server terminated, deleting the message queue"
+        elif message == "error":
+            return "Server couldn't process the request"
+        else:
+            price, temp, coverage = message.split(";")
+            return f"Price of kWh : {price}€/kWh ── Temperature : {temp}°C ── Cloud coverage : {coverage}%"
 
 
 """
     Main client loop
-    takes an only argument, the ipc key id to communicate with the server
+    takes an only argument, the ipc key id to communicate with the server_utils
 """
 if __name__ == "__main__":
     IPC_KEY = 128
@@ -47,13 +57,9 @@ if __name__ == "__main__":
 
     client = Client(IPC_KEY)
 
-    # Stops when response = 0
-    while response := client.process(input(" > ")):
-        print(
-            "Request processed"
-            if response == 1
-            else "Server could not interpret the response"
-        )
+    # Stops when response = "end"
+    while (response := client.send_mq(input(" > "))) != "end":
+        print(" >", Client.process(response))
 
     client.message_queue.remove()
     print("client stopped")

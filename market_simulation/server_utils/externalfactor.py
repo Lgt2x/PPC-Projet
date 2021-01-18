@@ -1,5 +1,5 @@
 """
-Contains Politics class, which simulates political events happening
+Generic external factor class, sending a signal to the market
 """
 import os
 from multiprocessing import Process
@@ -9,15 +9,17 @@ from time import sleep
 
 class ExternalFactor(Process):
     """
-    Simulates political events, sending signal to the market randomly
+    Process that simulates an external event, such as politics or stock market
+    It sends a given signal to the market process when the situation deteriorates,
+    with a random waiting time
     """
 
     def __init__(self, ppid: int, name: str, signal_code: int, delay: int):
-        super(ExternalFactor, self).__init__()
-        self.ppid = ppid
-        self.name = name
-        self.signal_code = signal_code
-        self.delay = delay
+        super().__init__()
+        self.ppid = ppid  # The market process id
+        self.name = name  # Factor name
+        self.signal_code = signal_code  # id of the signal to be sent
+        self.delay = delay  # maximum time between two signals
 
     def run(self) -> None:
         """
@@ -31,11 +33,11 @@ class ExternalFactor(Process):
         Sends a signal to the market (parent) process,
         after sleeping specified time
         :param time: time to sleep in seconds before sending the signal
-        :return:
         """
         try:
             sleep(time)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # Interrupt softly the process
             print(f"Killing softly {self.name}\n", end="")
 
+        # Send signal
         os.kill(int(self.ppid), self.signal_code)

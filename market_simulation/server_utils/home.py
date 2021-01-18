@@ -9,7 +9,7 @@ from random import randint, random
 import sysv_ipc
 from colorama import Fore, Style
 
-setrecursionlimit(10**6)  # Don't judge me okay
+setrecursionlimit(10 ** 6)  # Don't judge me okay
 TYPES = {1: "Give", 2: "Sell", 3: "Both"}  # Defining household types
 
 
@@ -29,7 +29,7 @@ class Home(Process):
         prod_average: int,
         pid: int,
     ):
-        super(Home, self).__init__()
+        super().__init__()
 
         self.house_type = house_type
         self.weather_shared = weather_shared
@@ -42,13 +42,21 @@ class Home(Process):
         self.market_mq = sysv_ipc.MessageQueue(ipc_key)
         self.home_pid = pid
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Run the exchange with the market, and catch the interruption
+        """
         try:
             self.transaction()
         except KeyboardInterrupt:
             print(f"Killing softly the house process {self.home_pid}\n", end="")
 
-    def transaction(self):
+    def transaction(self) -> None:
+        """
+        Used in every exchange between the house and the market
+        Computes the production and consumption of the house
+        """
+
         # Home inhabitants check local weather
         # which influences their decisions on whether or not
         # they'll use electric heating or not (which is a major energy sink)
@@ -63,7 +71,9 @@ class Home(Process):
         # Add the cloud coverage factor, diminishing the production
         if 0 <= cloud_coverage <= 70:
             # compute the solar production of each house with a small random factor
-            self.production = self.base_production + 10 * 1 / cloud_coverage + 2 * random()
+            self.production = (
+                self.base_production + 10 * 1 / cloud_coverage + 2 * random()
+            )
         elif cloud_coverage > 90 or temperature > 35:
             self.production = 0
 
@@ -85,9 +95,11 @@ class Home(Process):
         color_bill = Fore.RED if total > 0 else Fore.GREEN
 
         print(
-            f"Updated home {self.home_pid} \t── Type : {Home.get_type(self.house_type)} \t── Bill : {color} {'{:.2f}'.format(self.bill, 2)} "
+            f"Updated home {self.home_pid} \t── Type : {Home.get_type(self.house_type)} "
+            f"\t── Bill : {color} {'{:.2f}'.format(self.bill, 2)} "
             f"€{Style.RESET_ALL} ── "
-            f"Consumed : {color_bill}{'{:.2f}'.format(total)} kWh{Style.RESET_ALL}\n", end=""
+            f"Consumed : {color_bill}{'{:.2f}'.format(total)} kWh{Style.RESET_ALL}\n",
+            end="",
         )
 
         self.bill = 0  # after the turn the bill is reinitialized
@@ -98,7 +110,7 @@ class Home(Process):
         self.run()
 
     @staticmethod
-    def get_cons(temp):
+    def get_cons(temp: int) -> int:
         """
         Works out the home energy consumption, taking weather into account
         :param temp: the temperature of the day
@@ -115,8 +127,16 @@ class Home(Process):
 
     @staticmethod
     def get_type(behaviour_id: int) -> str:
+        """
+        Returns the name of the type of the house considered for display purposes
+        :param behaviour_id: int
+        :return: str
+        """
         return TYPES[behaviour_id]
 
-    def kill(self):
+    def kill(self) -> None:
+        """
+        Kills softly the process
+        """
         print(f"{Fore.RED}Stopping house {self.home_pid} {Style.RESET_ALL}")
-        super(Home, self).kill()
+        super().kill()

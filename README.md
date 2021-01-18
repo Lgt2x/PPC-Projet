@@ -2,7 +2,7 @@
 
 First, launch the server :
 ```bash
-python server.py config.json
+python server_utils.py config.json
 ```
 
 

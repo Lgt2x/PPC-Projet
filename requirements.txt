@@ -1,2 +1,4 @@
-sysv-ipc==1.0.1
+sysv-ipc==1.1.0
 colorama==0.4.4
+black==20.8b1
+pylint==2.6.0

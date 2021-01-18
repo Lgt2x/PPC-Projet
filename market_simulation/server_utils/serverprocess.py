@@ -1,14 +1,12 @@
 """
-Defines abstract class from which every server class derives
+Defines abstract class from which every server_utils class derives
 """
 from multiprocessing import Process, Barrier, Value
-
-from sysv_ipc import MessageQueue
 
 
 class ServerProcess(Process):
     """
-    Abstract class used to define the common behavior between server subprocess
+    Abstract class used to define the common behavior between server_utils subprocess
     """
 
     def __init__(
@@ -17,19 +15,16 @@ class ServerProcess(Process):
         write_barrier: Barrier,
         price_shared: Value,
         weather_shared: Value,
-        ipc_key: int,
-        ipc_message_type: int,
+        *args,
+        **kwargs
     ):
-        super(ServerProcess, self).__init__()
+        super().__init__()
 
         self.compute_barrier = compute_barrier
         self.write_barrier = write_barrier
 
         self.price_shared = price_shared
         self.weather_shared = weather_shared
-
-        self.server_mq = MessageQueue(ipc_key)
-        self.ipc_message_type = ipc_message_type
 
     def run(self):
         """
