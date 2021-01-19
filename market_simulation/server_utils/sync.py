@@ -1,12 +1,12 @@
 """
 Defines the class used for server_utils sync
 """
-from multiprocessing import Barrier, Value
 from time import sleep
 
 from colorama import Back, Fore, Style
 
 from .serverprocess import ServerProcess
+from .sharedvars import SharedVariables
 
 
 class ServerSync(ServerProcess):
@@ -16,17 +16,8 @@ class ServerSync(ServerProcess):
     and manual, waiting for the user to manually advance in time
     """
 
-    def __init__(
-        self,
-        compute_barrier: Barrier,
-        write_barrier: Barrier,
-        price_shared: Value,
-        weather_shared: Value,
-        time_interval: int,
-    ):
-        super().__init__(
-            compute_barrier, write_barrier, price_shared, weather_shared,
-        )
+    def __init__(self, shared_variables: SharedVariables, time_interval: int):
+        super().__init__(shared_variables)
 
         self.time_interval = time_interval
         self.turn = 0

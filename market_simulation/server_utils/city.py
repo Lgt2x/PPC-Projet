@@ -1,13 +1,14 @@
 """
 City object, to simulate a bunch of houses consuming electricity
 """
-from multiprocessing import Barrier, Value
+from multiprocessing import Barrier
 from random import randint, random
 
 from colorama import Fore, Style, Back
 
 from .serverprocess import ServerProcess
 from .home import Home
+from .sharedvars import SharedVariables
 
 
 class City(ServerProcess):
@@ -18,19 +19,13 @@ class City(ServerProcess):
 
     def __init__(
         self,
-        compute_barrier: Barrier,
-        write_barrier: Barrier,
-        price_shared: Value,
-        weather_shared: Value,
+        shared_variables: SharedVariables,
         ipc_key_houses: int,
         nb_houses: int,
         average_conso: int,
         max_prod: int,
     ):
-        super().__init__(
-            compute_barrier, write_barrier, price_shared, weather_shared,
-        )
-
+        super().__init__(shared_variables)
         self.nb_houses = nb_houses
 
         # once all the houses has called the barrier, we just need the city's call
@@ -41,7 +36,7 @@ class City(ServerProcess):
                 house_type=randint(1, 3),  # type of house
                 ipc_key=ipc_key_houses,
                 home_barrier=self.home_barrier,
-                weather_shared=weather_shared,
+                weather_shared=shared_variables.weather_shared,
                 average_conso=average_conso,
                 prod_average=int(max_prod * random()),
                 pid=home_pid + 1,  # can't be null

@@ -14,6 +14,7 @@ from sysv_ipc import MessageQueue
 
 from .serverprocess import ServerProcess
 from .externalfactor import ExternalFactor
+from .sharedvars import SharedVariables
 
 
 class Market(ServerProcess):
@@ -23,19 +24,14 @@ class Market(ServerProcess):
 
     def __init__(
         self,
-        compute_barrier: multiprocessing.Barrier,
-        write_barrier: multiprocessing.Barrier,
-        price_shared: multiprocessing.Value,
-        weather_shared: multiprocessing.Array,
+        shared_variables: SharedVariables,
         politics: int,
         economy: int,
         nb_houses: int,
         ipc_house: int,
         time_interval: int,
     ):
-        super().__init__(
-            compute_barrier, write_barrier, price_shared, weather_shared,
-        )
+        super().__init__(shared_variables)
 
         # Political climate, rated from 0 to 100
         self.politics = Value("i")
@@ -48,7 +44,6 @@ class Market(ServerProcess):
             self.economy.value = economy
 
         self.nb_houses = nb_houses  # Number of houses
-        self.price_shared = price_shared  # Price of kWh
         self.mq_house = MessageQueue(
             ipc_house
         )  # Message queue to communicate with houses
@@ -198,10 +193,10 @@ class Market(ServerProcess):
                 return  # Don't return the bill now, do it later
 
         # Get the current price
-        with self.price_shared.get_lock():
+        with self.shared_variables.price_shared.get_lock():
             # Send back the bill price to the house
             self.mq_house.send(
-                str(consumption * self.price_shared.value).encode(),
+                str(consumption * self.shared_variables.price_shared.value).encode(),
                 type=house + 10 ** 6,
             )
 
@@ -215,8 +210,8 @@ class Market(ServerProcess):
                 message, house = self.mq_house.receive()
                 pool.submit(self.transaction, message, house)
 
-        with self.price_shared.get_lock():
-            price_kwh = self.price_shared.value
+        with self.shared_variables.price_shared.get_lock():
+            price_kwh = self.shared_variables.price_shared.value
 
         # Type 3 houses (sell if no takers) if all the surplus isn't totally consumed
         while self.waiting_houses:
@@ -237,17 +232,17 @@ class Market(ServerProcess):
         """
 
         # Get the weather conditions
-        with self.weather_shared.get_lock():
-            temperature = self.weather_shared[0]
-            cloud_coverage = self.weather_shared[1]
+        with self.shared_variables.weather_shared.get_lock():
+            temperature = self.shared_variables.weather_shared[0]
+            cloud_coverage = self.shared_variables.weather_shared[1]
 
         # Update the price
         self.daily_consumption.get_lock().acquire()
         self.politics.get_lock().acquire()
         self.economy.get_lock().acquire()
-        with self.price_shared.get_lock():
-            self.price_shared.value = (
-                self.gamma * self.price_shared.value
+        with self.shared_variables.price_shared.get_lock():
+            self.shared_variables.price_shared.value = (
+                self.gamma * self.shared_variables.price_shared.value
                 + self.alpha[0] * 1 / (16 + temperature)
                 + self.alpha[1] * cloud_coverage
                 + self.alpha[2] * self.daily_consumption.value
@@ -255,7 +250,7 @@ class Market(ServerProcess):
                 + self.beta[1] * 1 / self.economy.value
             )
             print(
-                f"{Fore.BLUE}New price is {round(self.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"
+                f"{Fore.BLUE}New price is {round(self.shared_variables.price_shared.value, 2)} €/kWh{Style.RESET_ALL}"
             )
         self.daily_consumption.get_lock().release()
         self.politics.get_lock().release()

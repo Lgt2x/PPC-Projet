@@ -11,10 +11,11 @@ from multiprocessing import Array, Barrier, Value
 import sysv_ipc
 from colorama import Fore, Style, Back
 
-from server_utils.sync import ServerSync
-from server_utils.market import Market
-from server_utils.city import City
-from server_utils.weather import Weather
+from market_simulation.server_utils.sharedvars import SharedVariables
+from market_simulation.server_utils.sync import ServerSync
+from market_simulation.server_utils.market import Market
+from market_simulation.server_utils.city import City
+from market_simulation.server_utils.weather import Weather
 
 
 class Server:
@@ -44,22 +45,26 @@ class Server:
             write_barrier = Barrier(parties=4)
 
             # Shared memory for the weather
-            self.weather_shared = Array("i", 2)
-            with self.weather_shared.get_lock():
-                self.weather_shared[0] = json_config["weather"]["temperature"]
-                self.weather_shared[1] = json_config["weather"]["cloud_coverage"]
+            weather_shared = Array("i", 2)
+            with weather_shared.get_lock():
+                weather_shared[0] = json_config["weather"]["temperature"]
+                weather_shared[1] = json_config["weather"]["cloud_coverage"]
 
             # Shared memory for the energy price
-            self.price_shared = Value("d")
-            with self.price_shared.get_lock():
-                self.price_shared.value = json_config["market"]["initial_price"]
+            price_shared = Value("d")
+            with price_shared.get_lock():
+                price_shared.value = json_config["market"]["initial_price"]
+
+            self.shared_variables = SharedVariables(
+                compute_barrier=compute_barrier,
+                write_barrier=write_barrier,
+                price_shared=price_shared,
+                weather_shared=weather_shared,
+            )
 
             # Declaring the simulation processes
             self.city = City(
-                compute_barrier=compute_barrier,
-                write_barrier=write_barrier,
-                price_shared=self.price_shared,
-                weather_shared=self.weather_shared,
+                shared_variables=self.shared_variables,
                 ipc_key_houses=json_config["server"]["ipc_key_house"],
                 nb_houses=json_config["cities"]["nb_houses"],
                 average_conso=json_config["cities"]["average_conso"],
@@ -67,31 +72,22 @@ class Server:
             )
 
             self.market = Market(
+                shared_variables=self.shared_variables,
                 politics=json_config["market"]["political_score"],
                 economy=json_config["market"]["economy_score"],
                 nb_houses=json_config["cities"]["nb_houses"],
                 ipc_house=json_config["server"]["ipc_key_house"],
                 time_interval=json_config["server"]["time_interval"],
-                compute_barrier=compute_barrier,
-                write_barrier=write_barrier,
-                price_shared=self.price_shared,
-                weather_shared=self.weather_shared,
             )
 
             self.weather = Weather(
-                compute_barrier=compute_barrier,
-                write_barrier=write_barrier,
-                price_shared=self.price_shared,
-                weather_shared=self.weather_shared,
+                shared_variables=self.shared_variables,
             )
 
-        self.sync = ServerSync(
-            compute_barrier=compute_barrier,
-            write_barrier=write_barrier,
-            price_shared=self.price_shared,
-            weather_shared=self.weather_shared,
-            time_interval=json_config["server"]["time_interval"],
-        )
+            self.sync = ServerSync(
+                shared_variables=self.shared_variables,
+                time_interval=json_config["server"]["time_interval"],
+            )
 
         # Starting all processes
         self.city.start()
@@ -137,7 +133,7 @@ class Server:
 
         if message == "end":
             return self.stop()
-        elif message == "report":
+        if message == "report":
             return self.send_report()
 
         return self.error()
@@ -148,11 +144,11 @@ class Server:
         """
         message = []
 
-        with self.price_shared.get_lock():
-            message.append("{:.2f}".format(self.price_shared.value))
+        with self.shared_variables.price_shared.get_lock():
+            message.append("{:.2f}".format(self.shared_variables.price_shared.value))
 
-        with self.weather_shared.get_lock():
-            message.extend(map(str, self.weather_shared))
+        with self.shared_variables.weather_shared.get_lock():
+            message.extend(map(str, self.shared_variables.weather_shared))
 
         message_sent = ";".join(message).encode()
         self.client_mq.send(message_sent, type=2)

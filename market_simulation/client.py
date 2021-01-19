@@ -17,8 +17,10 @@ class Client:
             print(f"Cannot connect to message queue {key}, terminating.")
             sys.exit(1)
 
-        print('Connection established. Enter "report" to see the current state of the simulation,'
-              'or "end" to end the simulation')
+        print(
+            'Connection established. Enter "report" to see the current state of the simulation,'
+            'or "end" to end the simulation'
+        )
 
     def send_mq(self, message: str) -> str:
         """
@@ -37,19 +39,22 @@ class Client:
 
     @staticmethod
     def process(message: str) -> str:
+        """
+        Process the message received by the server
+        """
         if message == "end":
             return "Server terminated, deleting the message queue"
-        elif message == "error":
+        if message == "error":
             return "Server couldn't process the request"
-        else:
-            price, temp, coverage = message.split(";")
-            return f"Price of kWh : {price}€/kWh ── Temperature : {temp}°C ── Cloud coverage : {coverage}%"
+
+        # Explicit format for server reports
+        # "price;temp;coverage"
+        price, temp, coverage = message.split(";")
+        return f"Price of kWh : {price}€/kWh ── Temperature : {temp}°C ── Cloud coverage : {coverage}%"
 
 
-"""
-    Main client loop
-    takes an only argument, the ipc key id to communicate with the server_utils
-"""
+# Main client loop*
+# takes an only argument, the ipc key id to communicate with the server_utils
 if __name__ == "__main__":
     IPC_KEY = 128
 

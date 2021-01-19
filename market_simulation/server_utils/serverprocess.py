@@ -1,7 +1,8 @@
 """
 Defines abstract class from which every server_utils class derives
 """
-from multiprocessing import Process, Barrier, Value
+from multiprocessing import Process
+from .sharedvars import SharedVariables
 
 
 class ServerProcess(Process):
@@ -9,22 +10,9 @@ class ServerProcess(Process):
     Abstract class used to define the common behavior between server_utils subprocess
     """
 
-    def __init__(
-        self,
-        compute_barrier: Barrier,
-        write_barrier: Barrier,
-        price_shared: Value,
-        weather_shared: Value,
-        *args,
-        **kwargs
-    ):
+    def __init__(self, shared_variables: SharedVariables):
         super().__init__()
-
-        self.compute_barrier = compute_barrier
-        self.write_barrier = write_barrier
-
-        self.price_shared = price_shared
-        self.weather_shared = weather_shared
+        self.shared_variables = shared_variables
 
     def run(self):
         """
@@ -35,11 +23,11 @@ class ServerProcess(Process):
         try:
             # Wait for every simulation object to call the compute barrier
             self.update()
-            self.compute_barrier.wait()
+            self.shared_variables.compute_barrier.wait()
 
             # Wait for every simulation object to call the write barrier
             self.write()
-            self.write_barrier.wait()
+            self.shared_variables.write_barrier.wait()
 
             # Then runs again
             self.run()

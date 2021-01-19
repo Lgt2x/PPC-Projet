@@ -1,4 +1,4 @@
-# PPC-Projet
+# PPC-Projet : Energy market simulation
 by Antoine Merle & Louis Gombert, January 2021
 
 ## Installation guide
@@ -21,4 +21,5 @@ python client.py
 
 You can edit some simulation parameters by changing the server config json file.
 
-Check the pylint compliance with `pylint market_simulation`
+Check the pylint compliance with `pylint market_simulation` (in root directory for pylint to find the pylintrc file)
+Format using black before pushing : `black market_simulation`

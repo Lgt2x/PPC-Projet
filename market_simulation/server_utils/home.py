@@ -96,7 +96,7 @@ class Home(Process):
 
         print(
             f"Updated home {self.home_pid} \t── Type : {Home.get_type(self.house_type)} "
-            f"\t── Bill : {color} {'{:.2f}'.format(self.bill, 2)} "
+            f"\t── Bill : {color} {'{:.2f}'.format(self.bill)} "
             f"€{Style.RESET_ALL} ── "
             f"Consumed : {color_bill}{'{:.2f}'.format(total)} kWh{Style.RESET_ALL}\n",
             end="",
