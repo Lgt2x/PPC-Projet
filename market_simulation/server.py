@@ -11,11 +11,11 @@ from multiprocessing import Array, Barrier, Value
 import sysv_ipc
 from colorama import Fore, Style, Back
 
-from market_simulation.server_utils.sharedvars import SharedVariables
-from market_simulation.server_utils.sync import ServerSync
-from market_simulation.server_utils.market import Market
-from market_simulation.server_utils.city import City
-from market_simulation.server_utils.weather import Weather
+from server_utils.sharedvars import SharedVariables  # pylint-disable-import-error
+from server_utils.sync import ServerSync
+from server_utils.market import Market
+from server_utils.city import City
+from server_utils.weather import Weather
 
 
 class Server:

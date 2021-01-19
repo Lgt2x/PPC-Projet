@@ -21,5 +21,6 @@ python client.py
 
 You can edit some simulation parameters by changing the server config json file.
 
-Check the pylint compliance with `pylint market_simulation` (in root directory for pylint to find the pylintrc file)
+Check the pylint compliance with `pylint market_simulation`
+
 Format using black before pushing : `black market_simulation`
